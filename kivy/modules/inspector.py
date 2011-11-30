@@ -350,10 +350,12 @@ class Inspector(FloatLayout):
             elif type(value) in (tuple, list):
                 dtype = 'list'
 
-        if isinstance(prop, NumericProperty) or dtype == 'numeric':
+        if isinstance(prop, NumericProperty) or \
+            isinstance(prop, BoundedNumericProperty) or dtype == 'numeric':
             content = TextInput(text=str(value) or '', multiline=False)
+            use_int = isinstance(prop, BoundedNumericProperty)
             content.bind(text=partial(
-                self.save_property_numeric, widget, key, index))
+                self.save_property_numeric, widget, key, index), use_int)
         elif isinstance(prop, StringProperty) or dtype == 'string':
             content = TextInput(text=value or '', multiline=True)
             content.bind(text=partial(
@@ -401,12 +403,17 @@ class Inspector(FloatLayout):
         if content:
             self.content.add_widget(content)
 
-    def save_property_numeric(self, widget, key, index, instance, value):
+    def save_property_numeric(self, widget, key, index, use_int, instance, value):
         try:
-            if index >= 0:
-                getattr(widget, key)[index] = float(instance.text)
+            if use_int:
+                txt = int(instance.text)
             else:
-                setattr(widget, key, float(instance.text))
+                txt = float(instance.text)
+
+            if index >= 0:
+                getattr(widget, key)[index] = txt
+            else:
+                setattr(widget, key, txt)
         except:
             pass
 
