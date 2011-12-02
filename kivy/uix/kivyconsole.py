@@ -75,16 +75,16 @@ class KivyConsole(GridLayout):
         self.scheduled            = False
         self.command_history      = []
         self.command_history_pos  = 0
-        self.cur_dir              = '['+ pwd +']:'
-        self.txtinput_history_box = TextInput(\
-                                        size_hint = (1,.89),\
-                                        font_size = 9,\
+        self.cur_dir              = pwd
+        self.txtinput_history_box = TextInput(
+                                        size_hint = (1,.89),
+                                        font_size = 9,
                                         text      = self.textcache)
-        self.txtinput_command_line= TextInput(\
-                                        multiline = False,\
-                                        size_hint = (1,None),\
-                                        font_size = 9,\
-                                        text      = self.cur_dir,\
+        self.txtinput_command_line= TextInput(
+                                        multiline = False,
+                                        size_hint = (1,None),
+                                        font_size = 9,
+                                        text      = '['+ pwd +']:',
                                         height    = 27)
 
         self.txtinput_command_line.bind(on_text_validate = self.on_enter)
@@ -118,7 +118,7 @@ class KivyConsole(GridLayout):
                 plus_minus = -1
             else:
                 plus_minus = 1
-            l_curdir= len(self.cur_dir)
+            l_curdir= len(self.cur_dir)+3
             col     = self.txtinput_command_line.cursor_col
             command = self.txtinput_command_line.text[l_curdir: col]
             max_len = len(self.command_history) -1
@@ -135,7 +135,7 @@ class KivyConsole(GridLayout):
                 self.command_history_pos = self.command_history_pos + plus_minus
                 cmd = self.command_history[self.command_history_pos]
                 if  cmd[:len(command)] == command:
-                    self.txtinput_command_line.text = self.cur_dir + cmd
+                    self.txtinput_command_line.text = '['+ self.cur_dir +']:' + cmd
                     move_cursor_to(col)
                     return
             self.command_history_pos = max_len + 1
@@ -145,23 +145,27 @@ class KivyConsole(GridLayout):
                 #up arrow: display previous command
                 if self.command_history_pos> 0 :
                     self.command_history_pos = self.command_history_pos - 1
-                    self.txtinput_command_line.text = self.cur_dir +\
+                    self.txtinput_command_line.text = '['+ self.cur_dir +']:' +\
                         self.command_history[self.command_history_pos]
                 return
             if l[1] == 274:
                 #dn arrow: display next command
                 if self.command_history_pos < len(self.command_history) - 1:
                     self.command_history_pos = self.command_history_pos + 1
-                    self.txtinput_command_line.text = self.cur_dir +\
+                    self.txtinput_command_line.text = '['+ self.cur_dir +']:' +\
                         self.command_history[self.command_history_pos]
                 else:
                     self.command_history_pos = len(self.command_history)
-                    self.txtinput_command_line.text = self.cur_dir
+                    self.txtinput_command_line.text = '['+ self.cur_dir +']:'
                 col = len(self.txtinput_command_line.text)
                 move_cursor_to(col)
                 return
             if l[1] == 23:
                 #tab: autocomplete TODO
+                #if empty or space before: list cur dir
+                #if in mid command:
+                    #if '.' or '/' or '\': list files in dir mentioned before '.' or '/' or '\'
+                    #else: list commands in PATH var starting withtext before cursor
                 return
             if l[1] == 280:
                 #pgup: search last command starting with...
@@ -173,17 +177,17 @@ class KivyConsole(GridLayout):
                 return
             if l[1] == 278:
                 #Home: cursor should not go left of cur_dir
-                col = len(self.cur_dir)
+                col = len(self.cur_dir)+3
                 move_cursor_to(col)
-                if l[4][0] == 'shift':
+                if len(l[4]) > 0 and l[4][0] == 'shift':
                     self.txtinput_command_line.selection_to = col
                 return
             if l[1] == 276 or l[1] == 8:
                 #left arrow/bkspc: cursor should not go left of cur_dir
-                if self.txtinput_command_line.cursor_col < len(self.cur_dir):
+                col = len(self.cur_dir)+3
+                if self.txtinput_command_line.cursor_col < col:
                     if l[1] == 8:
-                        self.txtinput_command_line.text = self.cur_dir
-                    col = len(self.cur_dir)
+                        self.txtinput_command_line.text = '['+ self.cur_dir +']:'
                     move_cursor_to(col)
                 return
 
@@ -217,19 +221,19 @@ class KivyConsole(GridLayout):
             if len(cmd) >0:
                 try:
                     #execute command
-                    self.popen_obj      = subprocess.Popen(\
-                      cmd,\
-                      bufsize       = -1,\
-                      stdout        = subprocess.PIPE,\
-                      stdin         = subprocess.PIPE,\
-                      stderr        = subprocess.STDOUT,\
-                      preexec_fn    = None,\
-                      close_fds     = False,\
-                      shell         = False,\
-                      cwd           = None,\
-                      env           = None,\
-                     universal_newlines = False,\
-                      startupinfo   = None,\
+                    self.popen_obj      = subprocess.Popen(
+                      cmd,
+                      bufsize       = -1,
+                      stdout        = subprocess.PIPE,
+                      stdin         = subprocess.PIPE,
+                      stderr        = subprocess.STDOUT,
+                      preexec_fn    = None,
+                      close_fds     = False,
+                      shell         = False,
+                      cwd           = None,
+                      env           = None,
+                     universal_newlines = False,
+                      startupinfo   = None,
                       creationflags = 0)
                     txt                 = self.popen_obj.stdout.readline()
                     while txt != '':
@@ -250,12 +254,14 @@ class KivyConsole(GridLayout):
 
         #append text to textcache
         self.textcache += self.txtinput_command_line.text + '\n'
-        command = self.txtinput_command_line.text[len(self.cur_dir):]
-        #store command in command_history
+        command = self.txtinput_command_line.text[len(self.cur_dir)+3:]
+
         if command  == '':
             self.txtinput_command_line_refocus = True
             return
+        # if command = cd change directory
 
+        #store command in command_history
         if self.command_history_pos > 0:
             if self.command_history[self.command_history_pos-1] != command:
                 self.command_history.append(command)
@@ -268,14 +274,12 @@ class KivyConsole(GridLayout):
             self.command_history = self.command_history[1:]
 
         #store output in textcache
-        self.txtinput_command_line.text    = self.cur_dir
+        self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
         parent = self.txtinput_command_line.parent
         #disable running a new command while and old one is running
         parent.remove_widget(self.txtinput_command_line)
         #add widget for interaction with the running command
-        txtinput_run_command = TextInput(\
-                                     multiline = False,\
-                                     font_size = 9)
+        txtinput_run_command = TextInput(multiline = False, font_size = 9)
 
         def interact_with_command(*l):
             txt = l[0].text + '\n'
@@ -287,19 +291,17 @@ class KivyConsole(GridLayout):
         self.txtinput_run_command_refocus = False
         txtinput_run_command.bind(on_text_validate = interact_with_command)
         txtinput_run_command.bind(focus = self.on_focus)
-        btn_kill = Button(\
-          text   ="kill",\
-          width  = 27,\
-          size_hint = (None, 1))
+        btn_kill = Button(text   ="kill",
+                          width  = 27,
+                       size_hint = (None, 1))
 
         def kill_process(*l):
             self.popen_obj.kill()
 
-        self.interact_layout = GridLayout(\
-                        rows = 1,\
-                        cols = 2,\
-                        height = 27,\
-                        size_hint = (1, None))
+        self.interact_layout = GridLayout(rows = 1,
+                                          cols = 2,
+                                        height = 27,
+                                     size_hint = (1, None))
         btn_kill.bind(on_press = kill_process)
         self.interact_layout.add_widget(txtinput_run_command)
         self.interact_layout.add_widget(btn_kill)
@@ -313,11 +315,14 @@ class KivyConsole(GridLayout):
         if instance is self.txtinput_history_box:
             #check if history_box has more text than indicated buy
             #self.cached_history and remove excess lines from top if so
-            split_lines = self.textcache.splitlines()
-            while len(split_lines)  > self.cached_history:
-                self.textcache = self.textcache[len(split_lines[0])+1:]
-                split_lines = self.textcache.splitlines()
-
+            split_lines = self.textcache.splitlines(True)
+            _lines = len(split_lines)
+            extra_lines = _lines  - self.cached_history
+            if extra_lines > 0:
+                removelen = 0
+                for line in split_lines[:extra_lines]:
+                    removelen += len(line)
+                self.textcache = self.textcache[removelen:]
 
             #disable editing while still allowing for
             #cut copy/paste operations
