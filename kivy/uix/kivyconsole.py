@@ -20,12 +20,12 @@ To configure, you can use  TODO: write config options
 
 __all__ = ('KivyConsole', )
 
-import subprocess, thread
+import shlex, subprocess, thread
 
 from kivy.uix.gridlayout import GridLayout
 from kivy.properties import NumericProperty, StringProperty
-from kivy.factory import Factory
 from kivy.uix.image import Image
+from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 from kivy.logger import Logger
@@ -204,28 +204,46 @@ class KivyConsole(GridLayout):
                 self.txtinput_command_line_refocus = False
                 self.txtinput_command_line.focus = True
                 self.txtinput_command_line.scroll_x = 0
+            if self.txtinput_run_command_refocus:
+                self.txtinput_run_command_refocus = False
+                instance.focus = True
+                instance.scroll_x = 0
+                instance.text = ''
 
     def on_enter(self, *l):
 
         def run_cmd(*l):
-            try:
-                #execute command
-                self.popen_obj      = subprocess.Popen(str(command)\
-                   .split(), stdout = subprocess.PIPE,\
-                             stdin  = subprocess.PIPE,\
-                             stderr = subprocess.STDOUT, shell = False)
-                txt                 = self.popen_obj.stdout.readline()
-                while txt != '':
-                    txt             = txt.decode('utf-8')
-                    self.textcache  = ''.join((self.textcache, txt))
-                    txt             = self.popen_obj.stdout.readline()
-            except OSError, err:
-                self.textcache     += str(err.strerror) +' < '+command+' >\n'
+            cmd = shlex.split(str(command))
+            if len(cmd) >0:
+                try:
+                    #execute command
+                    self.popen_obj      = subprocess.Popen(\
+                      cmd,\
+                      bufsize       = -1,\
+                      stdout        = subprocess.PIPE,\
+                      stdin         = subprocess.PIPE,\
+                      stderr        = subprocess.STDOUT,\
+                      preexec_fn    = None,\
+                      close_fds     = False,\
+                      shell         = False,\
+                      cwd           = None,\
+                      env           = None,\
+                     universal_newlines = False,\
+                      startupinfo   = None,\
+                      creationflags = 0)
+                    txt                 = self.popen_obj.stdout.readline()
+                    while txt != '':
+                        self.popen_obj.stdout.flush()
+                        txt             = txt.decode('utf-8')
+                        self.textcache  = ''.join((self.textcache, txt))
+                        txt             = self.popen_obj.stdout.readline()
+                except OSError, err:
+                    self.textcache     += str(err.strerror) +' < '+command+' >\n'
 
             self.popen_obj = None
             #command finished : remove widget responsible for interaction with it
-            parent.remove_widget(self.txtinput_run_command)
-            self.txtinput_run_command = None
+            parent.remove_widget(self.interact_layout)
+            self.interact_layout = None
             #enable running a new command
             parent.add_widget(self.txtinput_command_line)
             self.txtinput_command_line.focus = True
@@ -255,20 +273,39 @@ class KivyConsole(GridLayout):
         #disable running a new command while and old one is running
         parent.remove_widget(self.txtinput_command_line)
         #add widget for interaction with the running command
-        self.txtinput_run_command = TextInput(\
+        txtinput_run_command = TextInput(\
                                      multiline = False,\
-                                     size_hint = (1,None),\
-                                     font_size = 9,\
-                                     height    = 27)
+                                     font_size = 9)
 
         def interact_with_command(*l):
             txt = l[0].text + '\n'
             self.popen_obj.stdin.write(txt)
             self.popen_obj.stdin.flush()
+            self.txtinput_run_command_refocus = True
 
-        self.txtinput_run_command.bind(on_text_validate = interact_with_command)
-        parent.add_widget(self.txtinput_run_command)
-        self.txtinput_run_command.focus = True
+
+        self.txtinput_run_command_refocus = False
+        txtinput_run_command.bind(on_text_validate = interact_with_command)
+        txtinput_run_command.bind(focus = self.on_focus)
+        btn_kill = Button(\
+          text   ="kill",\
+          width  = 27,\
+          size_hint = (None, 1))
+
+        def kill_process(*l):
+            self.popen_obj.kill()
+
+        self.interact_layout = GridLayout(\
+                        rows = 1,\
+                        cols = 2,\
+                        height = 27,\
+                        size_hint = (1, None))
+        btn_kill.bind(on_press = kill_process)
+        self.interact_layout.add_widget(txtinput_run_command)
+        self.interact_layout.add_widget(btn_kill)
+        parent.add_widget(self.interact_layout)
+
+        txtinput_run_command.focus = True
         thread.start_new_thread(run_cmd,())
 
 
