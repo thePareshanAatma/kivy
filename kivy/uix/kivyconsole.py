@@ -20,7 +20,7 @@ To configure, you can use  TODO: write config options
 
 __all__ = ('KivyConsole', )
 
-import shlex, subprocess, thread
+import shlex, subprocess, thread, os
 
 from kivy.uix.gridlayout import GridLayout
 from kivy.properties import NumericProperty, StringProperty
@@ -69,13 +69,15 @@ class KivyConsole(GridLayout):
         super(KivyConsole, self).__init__(**kwargs)
         #initialisations
         self.txtinput_command_line_refocus = False
-        pwd = subprocess.Popen('pwd', stdout=subprocess.PIPE).stdout.readline()
-        pwd                       = pwd[:len(pwd)-1]
+        #pwd = subprocess.Popen('pwd', stdout=subprocess.PIPE).stdout.readline()
+        #pwd                       = pwd[:len(pwd)-1]
+        pwd                       = os.getcwd()
         self.win                  = None
         self.scheduled            = False
         self.command_history      = []
         self.command_history_pos  = 0
         self.cur_dir              = pwd
+
         self.txtinput_history_box = TextInput(
                                         size_hint = (1,.89),
                                         font_size = 9,
@@ -86,6 +88,7 @@ class KivyConsole(GridLayout):
                                         font_size = 9,
                                         text      = '['+ pwd +']:',
                                         height    = 27)
+        self.txtinput_run_command_refocus         = False
 
         self.txtinput_command_line.bind(on_text_validate = self.on_enter)
         self.txtinput_command_line.bind(focus            = self.on_focus)
@@ -230,7 +233,7 @@ class KivyConsole(GridLayout):
                       preexec_fn    = None,
                       close_fds     = False,
                       shell         = False,
-                      cwd           = None,
+                      cwd           = self.cur_dir,
                       env           = None,
                      universal_newlines = False,
                       startupinfo   = None,
@@ -259,7 +262,6 @@ class KivyConsole(GridLayout):
         if command  == '':
             self.txtinput_command_line_refocus = True
             return
-        # if command = cd change directory
 
         #store command in command_history
         if self.command_history_pos > 0:
@@ -269,8 +271,22 @@ class KivyConsole(GridLayout):
             self.command_history.append(command)
 
         self.command_history_pos = len(self.command_history)
+
+        # if command = cd change directory
+        if command.startswith('cd '):
+            try:
+                subprocess.Popen((command), shell = True, cwd = self.cur_dir)
+                if command[3] == '.':
+                    for x in range(command.count('..')):
+                        self.cur_dir = self.cur_dir[:self.cur_dir.rfind(os.sep)]
+            except:
+                self.textcache+= '[Error] invalid directory\n'
+            self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
+            self.txtinput_command_line_refocus = True
+            return
+        
+        #on reaching limit(cached_lines) pop first command
         if len(self.command_history) >= self.cached_commands:
-            #on reaching limit(cached_lines) pop first command
             self.command_history = self.command_history[1:]
 
         #store output in textcache
