@@ -9,13 +9,33 @@ KivyConsole
 :class:`KivyConsole` is a :class:`~kivy.uix.widget.Widget`
 Purpose: Providing a system console for debugging kivy by running another
 instance of kivy in this console and displaying it's output.
-To configure, you can use  TODO: write config options
+To configure, you can use  
+
+cached_history : 
+cached_commands :
+font :
+font_size:
 
 ''Versionadded:: 1.0.?TODO
 
 ''Usage:
 
-    parent.add_widget(Re_Size())
+    parent.add_widget(KivyConsole())
+
+Inside the console you can use the following shortcuts:
+Shortcut                     Function
+_________________________________________________________
+PGup           Search for previous command inside command history
+               starting with the text before current cursor position
+
+PGdn           Search for Next command inside command history
+               starting with the text before current cursor position
+
+UpArrow        Replace command_line with previous command
+DnArrow        Replace command_line with previous command
+               (only works if one is not at last command)
+
+Tab            TODO
 '''
 
 __all__ = ('KivyConsole', )
@@ -39,54 +59,63 @@ Builder.load_string('''
 ''')
 
 
-
+x
 class KivyConsole(GridLayout):
     '''This is a Console widget used for debugging and running external
     commands
 
-
-    Events:
-
     '''
     cached_history = NumericProperty(200)
-    '''Indicates the no of lines to cache defaults to 200
+    '''Indicates the No. of lines to cache. Defaults to 200
 
     :data:`cached_history` is an :class:`~kivy.properties.NumericProperty`,
-    default to '200'
+    Default to '200'
     '''
 
     cached_commands = NumericProperty(90)
-    '''Indicates the no of commands to cache defaults to 90
+    '''Indicates the no of commands to cache. Defaults to 90
 
-    :data:`cached_commands` is an :class:`~kivy.properties.NumericProperty`,
-    default to '90'
+    :data:`cached_commands` is a :class:`~kivy.properties.NumericProperty`,
+    Default to '90'
     '''
+    font = StringProperty('fonts/DroidSansMono.ttf')
+    '''Indicates the font Style used in the console
+    :data:`font` is a :class:`~kivy.properties.StringProperty`,
+    Default to 'droid'
+    '''
+
+    font_size = NumericProperty(9)
+    '''Indicates the size of the font used for the console
+    :data:`font_size` is a :class:`~kivy.properties.NumericProperty`,
+    Default to '9'
+    '''
+
     textcache = StringProperty('')
-    '''
+    '''Indicates the textcache of the commands and their output
+    :data:`textcache` is a :class:`~kivy.properties.StringProperty`,
+    Default to ''
     '''
 
     def __init__(self, **kwargs):
         super(KivyConsole, self).__init__(**kwargs)
         #initialisations
         self.txtinput_command_line_refocus = False
-        #pwd = subprocess.Popen('pwd', stdout=subprocess.PIPE).stdout.readline()
-        #pwd                       = pwd[:len(pwd)-1]
-        pwd                       = os.getcwd()
         self.win                  = None
         self.scheduled            = False
         self.command_history      = []
         self.command_history_pos  = 0
-        self.cur_dir              = pwd
-
+        self.cur_dir              = os.getcwd()
         self.txtinput_history_box = TextInput(
                                         size_hint = (1,.89),
-                                        font_size = 9,
+                                        font      = self.font,
+                                        font_size = self.font_size,
                                         text      = self.textcache)
         self.txtinput_command_line= TextInput(
                                         multiline = False,
                                         size_hint = (1,None),
-                                        font_size = 9,
-                                        text      = '['+ pwd +']:',
+                                        font      = self.font,
+                                        font_size = self.font_size,
+                                        text      = '['+ self.cur_dir +']:',
                                         height    = 27)
         self.txtinput_run_command_refocus         = False
 
@@ -219,7 +248,16 @@ class KivyConsole(GridLayout):
 
     def on_enter(self, *l):
 
+        def remove_command_interaction_widgets(*l):
+            #command finished : remove widget responsible for interaction with it
+            parent.remove_widget(self.interact_layout)
+            self.interact_layout = None
+            #enable running a new command
+            parent.add_widget(self.txtinput_command_line)
+            self.txtinput_command_line.focus = True
+
         def run_cmd(*l):
+            # this is run inside a thread so take care avoid gui ops
             cmd = shlex.split(str(command))
             if len(cmd) >0:
                 try:
@@ -245,15 +283,12 @@ class KivyConsole(GridLayout):
                         self.textcache  = ''.join((self.textcache, txt))
                         txt             = self.popen_obj.stdout.readline()
                 except OSError, err:
-                    self.textcache     += str(err.strerror) +' < '+command+' >\n'
+                    self.textcache      = ''.join((self.textcache,\
+                                                 str(err.strerror),\
+                                                 ' < ', command, ' >\n'))
 
             self.popen_obj = None
-            #command finished : remove widget responsible for interaction with it
-            parent.remove_widget(self.interact_layout)
-            self.interact_layout = None
-            #enable running a new command
-            parent.add_widget(self.txtinput_command_line)
-            self.txtinput_command_line.focus = True
+            Clock.schedule_once(remove_command_interaction_widgets)
 
         #append text to textcache
         self.textcache += self.txtinput_command_line.text + '\n'
@@ -265,12 +300,17 @@ class KivyConsole(GridLayout):
 
         #store command in command_history
         if self.command_history_pos > 0:
+            self.command_history_pos = len(self.command_history) 
             if self.command_history[self.command_history_pos-1] != command:
                 self.command_history.append(command)
         else:
             self.command_history.append(command)
 
         self.command_history_pos = len(self.command_history)
+
+        #on reaching limit(cached_lines) pop first command
+        if len(self.command_history) >= self.cached_commands:
+            self.command_history = self.command_history[1:]
 
         # if command = cd change directory
         if command.startswith('cd '):
@@ -282,10 +322,6 @@ class KivyConsole(GridLayout):
             self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
             self.txtinput_command_line_refocus = True
             return
-        
-        #on reaching limit(cached_lines) pop first command
-        if len(self.command_history) >= self.cached_commands:
-            self.command_history = self.command_history[1:]
 
         #store output in textcache
         self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
@@ -296,6 +332,8 @@ class KivyConsole(GridLayout):
         txtinput_run_command = TextInput(multiline = False, font_size = 9)
 
         def interact_with_command(*l):
+            if not self.popen_obj:
+                return
             txt = l[0].text + '\n'
             self.popen_obj.stdin.write(txt)
             self.popen_obj.stdin.flush()
