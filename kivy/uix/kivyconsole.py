@@ -275,12 +275,10 @@ class KivyConsole(GridLayout):
         # if command = cd change directory
         if command.startswith('cd '):
             try:
-                subprocess.Popen((command), shell = True, cwd = self.cur_dir)
-                if command[3] == '.':
-                    for x in range(command.count('..')):
-                        self.cur_dir = self.cur_dir[:self.cur_dir.rfind(os.sep)]
-            except:
-                self.textcache+= '[Error] invalid directory\n'
+                os.chdir(self.cur_dir + os.sep + command[3:])
+                self.cur_dir = os.getcwd()
+            except OSError, err:
+                self.textcache+= err.strerror + '\n'
             self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
             self.txtinput_command_line_refocus = True
             return
