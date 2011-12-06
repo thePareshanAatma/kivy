@@ -103,7 +103,7 @@ class KivyConsole(GridLayout):
         self.scheduled            = False
         self.command_history      = []
         self.command_history_pos  = 0
-        self.cur_dir              = os.getcwd()
+        self.cur_dir              = os.getcwdu()
         self.txtinput_history_box = TextInput(
                                         size_hint = (1,.89),
                                         font      = self.font,
@@ -166,7 +166,10 @@ class KivyConsole(GridLayout):
                 self.command_history_pos = self.command_history_pos + plus_minus
                 cmd = self.command_history[self.command_history_pos]
                 if  cmd[:len(command)] == command:
-                    self.txtinput_command_line.text = '['+ self.cur_dir +']:' + cmd
+                    self.txtinput_command_line.text = ''.join(('[',
+                                                               self.cur_dir,
+                                                               ']:',
+                                                               cmd))
                     move_cursor_to(col)
                     return
             self.command_history_pos = max_len + 1
@@ -176,27 +179,75 @@ class KivyConsole(GridLayout):
                 #up arrow: display previous command
                 if self.command_history_pos> 0 :
                     self.command_history_pos = self.command_history_pos - 1
-                    self.txtinput_command_line.text = '['+ self.cur_dir +']:' +\
-                        self.command_history[self.command_history_pos]
+                    self.txtinput_command_line.text = ''.join(
+                                                      ('[',self.cur_dir,']:',
+                              self.command_history[self.command_history_pos]))
+                        
                 return
             if l[1] == 274:
                 #dn arrow: display next command
                 if self.command_history_pos < len(self.command_history) - 1:
                     self.command_history_pos = self.command_history_pos + 1
-                    self.txtinput_command_line.text = '['+ self.cur_dir +']:' +\
-                        self.command_history[self.command_history_pos]
+                    self.txtinput_command_line.text = ''.join(
+                                                     ('[', self.cur_dir, ']:',
+                              self.command_history[self.command_history_pos]))
                 else:
                     self.command_history_pos = len(self.command_history)
-                    self.txtinput_command_line.text = '['+ self.cur_dir +']:'
+                    self.txtinput_command_line.text = ''.join(('[',
+                                                               self.cur_dir,
+                                                               ']:'))
                 col = len(self.txtinput_command_line.text)
                 move_cursor_to(col)
                 return
-            if l[1] == 23:
-                #tab: autocomplete TODO
+            if l[1] == 9:
+                #tab: autocomplete TODO  WIP[====  ]% done
+                def display_dir(cur_dir):
+                    self.textcache = ''.join((self.textcache,
+                                              'contents of directory:',
+                                              cur_dir,
+                                              '\n'))
+                    for _file in  os.listdir(cur_dir):
+                         self.textcache = ''.join((self.textcache,_file,'\t'))
+                    self.textcache = ''.join((self.textcache, '\n'))
+
+                #send back space to command line -remove the tab
+                self.txtinput_command_line.do_backspace()
+                # store text before cursor for comparison
+                l_curdir= len(self.cur_dir)+3
+                col     = self.txtinput_command_line.cursor_col
+                text_before_cursor = self.txtinput_command_line\
+                                     .text[l_curdir: col]
                 #if empty or space before: list cur dir
+                if text_before_cursor == ''\
+                   or self.txtinput_command_line.text[col-1] == ' ':
+                    display_dir(self.cur_dir)
                 #if in mid command:
-                    #if '.' or '/' or '\': list files in dir mentioned before '.' or '/' or '\'
-                    #else: list commands in PATH var starting withtext before cursor
+                else:
+                    # list commands in PATH var starting with text before cursor
+                    # split command into path till the seperator
+                    cmd_start  = text_before_cursor.rfind(' ')
+                    cmd_start += 1
+                    cmd_end = text_before_cursor.rfind(os.sep)
+                    len_txt_bef_cur = len(text_before_cursor)-1
+                    if cmd_end == len_txt_bef_cur:
+                        #display files in path
+                        display_dir(''.join((self.cur_dir, os.sep,
+                                    text_before_cursor[cmd_start:cmd_end])))
+                    elif text_before_cursor[len_txt_bef_cur] == '.':
+                        #if / already there return
+                        if len(self.txtinput_command_line.text) > col\
+                           and self.txtinput_command_line.text[col] ==os.sep:
+                            return
+                        # insert at cursor os.sep: / or \
+                        self.txtinput_command_line.text = ''.join(('[',
+                                                          self.cur_dir,
+                                                          ']:',
+                                                          text_before_cursor,
+                                                          os.sep,
+                                      self.txtinput_command_line.text[col:]))
+                    else:
+                        print 'else case TODO'
+                        
                 return
             if l[1] == 280:
                 #pgup: search last command starting with...
@@ -218,7 +269,10 @@ class KivyConsole(GridLayout):
                 col = len(self.cur_dir)+3
                 if self.txtinput_command_line.cursor_col < col:
                     if l[1] == 8:
-                        self.txtinput_command_line.text = '['+ self.cur_dir +']:'
+                        self.txtinput_command_line.text = ''.join(
+                                                          ('[',
+                                                          self.cur_dir,
+                                                          ']:'))
                     move_cursor_to(col)
                 return
 
@@ -283,14 +337,16 @@ class KivyConsole(GridLayout):
                         txt             = self.popen_obj.stdout.readline()
                 except OSError, err:
                     self.textcache      = ''.join((self.textcache,
-                                                 str(err.strerror),
-                                                 ' < ', command, ' >\n'))
+                                                   str(err.strerror),
+                                                   ' < ', command, ' >\n'))
 
             self.popen_obj = None
             Clock.schedule_once(remove_command_interaction_widgets)
 
         #append text to textcache
-        self.textcache += self.txtinput_command_line.text + '\n'
+        self.textcache = ''.join((self.textcache,
+                                  self.txtinput_command_line.text,
+                                  '\n'))
         command = self.txtinput_command_line.text[len(self.cur_dir)+3:]
 
         if command  == '':
@@ -315,15 +371,17 @@ class KivyConsole(GridLayout):
         if command.startswith('cd '):
             try:
                 os.chdir(self.cur_dir + os.sep + command[3:])
-                self.cur_dir = os.getcwd()
+                self.cur_dir = os.getcwdu()
+                self.txtinput_command_line.text = ''.join(('[', self.cur_dir, ']:'))
             except OSError, err:
-                self.textcache+= err.strerror + '\n'
-            self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
+                self.textcache = ''.join((self.textcache,
+                                          err.strerror,
+                                          '\n'))
             self.txtinput_command_line_refocus = True
             return
 
+        self.txtinput_command_line.text = ''.join(('[', self.cur_dir, ']:'))
         #store output in textcache
-        self.txtinput_command_line.text    = '['+ self.cur_dir +']:'
         parent = self.txtinput_command_line.parent
         #disable running a new command while and old one is running
         parent.remove_widget(self.txtinput_command_line)
