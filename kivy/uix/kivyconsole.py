@@ -32,7 +32,8 @@ PGdn           Search for Next command inside command history
                starting with the text before current cursor position
 
 UpArrow        Replace command_line with previous command
-DnArrow        Replace command_line with previous command
+
+DnArrow        Replace command_line with next command
                (only works if one is not at last command)
 
 Tab            TODO
@@ -58,8 +59,6 @@ Builder.load_string('''
     rows:2
 ''')
 
-
-x
 class KivyConsole(GridLayout):
     '''This is a Console widget used for debugging and running external
     commands
@@ -262,7 +261,7 @@ class KivyConsole(GridLayout):
             if len(cmd) >0:
                 try:
                     #execute command
-                    self.popen_obj      = subprocess.Popen(
+                    self.popen_obj  = subprocess.Popen(
                       cmd,
                       bufsize       = -1,
                       stdout        = subprocess.PIPE,
@@ -273,7 +272,7 @@ class KivyConsole(GridLayout):
                       shell         = False,
                       cwd           = self.cur_dir,
                       env           = None,
-                     universal_newlines = False,
+                      universal_newlines = False,
                       startupinfo   = None,
                       creationflags = 0)
                     txt                 = self.popen_obj.stdout.readline()
@@ -283,8 +282,8 @@ class KivyConsole(GridLayout):
                         self.textcache  = ''.join((self.textcache, txt))
                         txt             = self.popen_obj.stdout.readline()
                 except OSError, err:
-                    self.textcache      = ''.join((self.textcache,\
-                                                 str(err.strerror),\
+                    self.textcache      = ''.join((self.textcache,
+                                                 str(err.strerror),
                                                  ' < ', command, ' >\n'))
 
             self.popen_obj = None
@@ -329,7 +328,9 @@ class KivyConsole(GridLayout):
         #disable running a new command while and old one is running
         parent.remove_widget(self.txtinput_command_line)
         #add widget for interaction with the running command
-        txtinput_run_command = TextInput(multiline = False, font_size = 9)
+        txtinput_run_command = TextInput(multiline = False,
+                                         font_size = self.font_size,
+                                         font = self.font)
 
         def interact_with_command(*l):
             if not self.popen_obj:
