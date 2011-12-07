@@ -9,9 +9,9 @@ KivyConsole
 :class:`KivyConsole` is a :class:`~kivy.uix.widget.Widget`
 Purpose: Providing a system console for debugging kivy by running another
 instance of kivy in this console and displaying it's output.
-To configure, you can use  
+To configure, you can use
 
-cached_history : 
+cached_history :
 cached_commands :
 font :
 font_size:
@@ -21,6 +21,8 @@ font_size:
 ''Usage:
 
     parent.add_widget(KivyConsole())
+
+TODO: Ensure unicode handling
 
 Inside the console you can use the following shortcuts:
 Shortcut                     Function
@@ -36,7 +38,15 @@ UpArrow        Replace command_line with previous command
 DnArrow        Replace command_line with next command
                (only works if one is not at last command)
 
-Tab            TODO
+Tab            If there is nothing before the cursur when tab is pressed
+                   contents of current directory will be displayed.
+               '.' before cursur will be converted to './'
+               '..' to '../'
+               If there is a path before cursur position
+                   contents of the path will be displayed.
+               else contents of the path before cursor containing
+                    the commands matching the text before cursur will
+                    be displayed
 '''
 
 __all__ = ('KivyConsole', )
@@ -182,7 +192,6 @@ class KivyConsole(GridLayout):
                     self.txtinput_command_line.text = ''.join(
                                                       ('[',self.cur_dir,']:',
                               self.command_history[self.command_history_pos]))
-                        
                 return
             if l[1] == 274:
                 #dn arrow: display next command
@@ -200,14 +209,34 @@ class KivyConsole(GridLayout):
                 move_cursor_to(col)
                 return
             if l[1] == 9:
-                #tab: autocomplete TODO  WIP[====  ]% done
-                def display_dir(cur_dir):
+                #tab: autocomplete [==== ]% done
+                def display_dir(cur_dir, starts_with = None):
+                    starts_with_is_not_None = starts_with is not None
+                    if starts_with_is_not_None:
+                        len_starts_with = len(starts_with)
+                    
                     self.textcache = ''.join((self.textcache,
-                                              'contents of directory:',
+                                              'contents of directory: ',
                                               cur_dir,
                                               '\n'))
+                    txt = ''
+                    no_of_matches = 0
                     for _file in  os.listdir(cur_dir):
-                         self.textcache = ''.join((self.textcache,_file,'\t'))
+                         if starts_with_is_not_None:
+                             if _file[:len_starts_with] == starts_with:
+                                 txt = ''.join((txt, _file, ' '))
+                                 no_of_matches += 1
+                         else:
+                             self.textcache = ''.join((self.textcache,_file,'\t'))
+                    if no_of_matches == 1:
+                        self.txtinput_command_line.text = ''.join(('[',
+                                                          self.cur_dir,
+                                                          ']:',
+                                                          text_before_cursor,
+                                                          txt[len_starts_with:],
+                                      self.txtinput_command_line.text[col:]))
+                    elif no_of_matches > 1:
+                        self.textcache = ''.join((self.textcache, txt))
                     self.textcache = ''.join((self.textcache, '\n'))
 
                 #send back space to command line -remove the tab
@@ -246,8 +275,14 @@ class KivyConsole(GridLayout):
                                                           os.sep,
                                       self.txtinput_command_line.text[col:]))
                     else:
-                        print 'else case TODO'
-                        
+                        if cmd_end < 0 :
+                            cmd_end = cmd_start
+                        else:
+                            cmd_end += 1
+                        display_dir(''.join((self.cur_dir,
+                                             os.sep,
+                                     text_before_cursor[cmd_start:cmd_end])),
+                                   text_before_cursor[cmd_end:])
                 return
             if l[1] == 280:
                 #pgup: search last command starting with...
@@ -258,7 +293,7 @@ class KivyConsole(GridLayout):
                 search_history('dn')
                 return
             if l[1] == 278:
-                #Home: cursor should not go left of cur_dir
+                #Home: cursor should not go to the left of cur_dir
                 col = len(self.cur_dir)+3
                 move_cursor_to(col)
                 if len(l[4]) > 0 and l[4][0] == 'shift':
@@ -311,7 +346,13 @@ class KivyConsole(GridLayout):
 
         def run_cmd(*l):
             # this is run inside a thread so take care avoid gui ops
-            cmd = shlex.split(str(command))
+            try:
+                cmd = shlex.split(str(command))
+            except ValueError, err:
+                cmd = ''
+                self.textcache      = ''.join((self.textcache,
+                                                   str(err.strerror),
+                                                   ' < ', command, ' >\n'))
             if len(cmd) >0:
                 try:
                     #execute command
@@ -335,7 +376,7 @@ class KivyConsole(GridLayout):
                         txt             = txt.decode('utf-8')
                         self.textcache  = ''.join((self.textcache, txt))
                         txt             = self.popen_obj.stdout.readline()
-                except OSError, err:
+                except OSError or ValueError, err:
                     self.textcache      = ''.join((self.textcache,
                                                    str(err.strerror),
                                                    ' < ', command, ' >\n'))
