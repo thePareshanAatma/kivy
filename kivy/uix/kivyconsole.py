@@ -105,7 +105,7 @@ class KivyConsole(GridLayout):
     Default to '9'
     '''
 
-    textcache = StringProperty('')
+    textcache = StringProperty(u'')
     '''Indicates the cache of the commands and their output
     :data:`textcache` is a :class:`~kivy.properties.StringProperty`,
     Default to ''
@@ -130,7 +130,7 @@ class KivyConsole(GridLayout):
                                         size_hint = (1,None),
                                         font      = self.font,
                                         font_size = self.font_size,
-                                        text      = '['+ self.cur_dir +']:',
+                                        text      = u'['+ self.cur_dir +u']:',
                                         height    = 27)
         self.txtinput_run_command_refocus         = False
 
@@ -182,7 +182,7 @@ class KivyConsole(GridLayout):
                 self.command_history_pos = self.command_history_pos +plus_minus
                 cmd = self.command_history[self.command_history_pos]
                 if  cmd[:len(command)] == command:
-                    self.txtinput_command_line.text = ''.join(('[',
+                    self.txtinput_command_line.text = u''.join(('[',
                                                                self.cur_dir,
                                                                ']:',
                                                                cmd))
@@ -195,7 +195,7 @@ class KivyConsole(GridLayout):
                 #up arrow: display previous command
                 if self.command_history_pos> 0 :
                     self.command_history_pos = self.command_history_pos - 1
-                    self.txtinput_command_line.text = ''.join(
+                    self.txtinput_command_line.text = u''.join(
                                                       ('[',self.cur_dir,']:',
                               self.command_history[self.command_history_pos]))
                 return
@@ -203,12 +203,12 @@ class KivyConsole(GridLayout):
                 #dn arrow: display next command
                 if self.command_history_pos < len(self.command_history) - 1:
                     self.command_history_pos = self.command_history_pos + 1
-                    self.txtinput_command_line.text = ''.join(
+                    self.txtinput_command_line.text = u''.join(
                                                      ('[', self.cur_dir, ']:',
                               self.command_history[self.command_history_pos]))
                 else:
                     self.command_history_pos = len(self.command_history)
-                    self.txtinput_command_line.text = ''.join(('[',
+                    self.txtinput_command_line.text = u''.join(('[',
                                                                self.cur_dir,
                                                                ']:'))
                 col = len(self.txtinput_command_line.text)
@@ -222,25 +222,25 @@ class KivyConsole(GridLayout):
                     try:
                         dir_list        = os.listdir(cur_dir)
                     except OSError, err:
-                        self.textcache  = ''.join((self.textcache,
+                        self.textcache  = u''.join((self.textcache,
                                                    err.strerror, '\n'))
                         return
                     if starts_with_is_not_None:
                         len_starts_with = len(starts_with)
-                    self.textcache      = ''.join((self.textcache,
+                    self.textcache      = u''.join((self.textcache,
                                                    'contents of directory: ',
                                                    cur_dir, '\n'))
-                    txt                 = ''
+                    txt                 = u''
                     no_of_matches       = 0
 
                     for _file in dir_list:
                          if starts_with_is_not_None:
                              if _file[:len_starts_with] == starts_with:
                                  #if file matches starts with
-                                 txt    = ''.join((txt, _file, ' '))
+                                 txt    = u''.join((txt, _file, ' '))
                                  no_of_matches += 1
                          else:
-                             self.textcache = ''.join((self.textcache,
+                             self.textcache = u''.join((self.textcache,
                                                        _file,'\t'))
                     if no_of_matches == 1:
                         len_txt = len(txt)-1
@@ -249,7 +249,7 @@ class KivyConsole(GridLayout):
                               or (col<len(self.txtinput_command_line.text)\
                               and self.txtinput_command_line.text[col]!=os.sep)\
                                  else ''
-                        self.txtinput_command_line.text = ''.join(('[',
+                        self.txtinput_command_line.text = u''.join(('[',
                                                           self.cur_dir,
                                                           ']:',
                                                           text_before_cursor,
@@ -259,8 +259,8 @@ class KivyConsole(GridLayout):
                                       self.txtinput_command_line.text[col:]))
                         move_cursor_to(col + (len_txt - len_starts_with) + 1)
                     elif no_of_matches > 1:
-                        self.textcache = ''.join((self.textcache, txt))
-                    self.textcache     = ''.join((self.textcache, '\n'))
+                        self.textcache = u''.join((self.textcache, txt))
+                    self.textcache     = u''.join((self.textcache, '\n'))
 
                 #send back space to command line -remove the tab
                 self.txtinput_command_line.do_backspace()
@@ -289,7 +289,7 @@ class KivyConsole(GridLayout):
                         #display files in path
                         if text_before_cursor[cmd_start] == os.sep:
                             cmd_start += 1
-                        display_dir(''.join((cur_dir, os_sep,
+                        display_dir(u''.join((cur_dir, os_sep,
                                     text_before_cursor[cmd_start:cmd_end])))
                     elif text_before_cursor[len_txt_bef_cur] == '.':
                         #if / already there return
@@ -302,7 +302,7 @@ class KivyConsole(GridLayout):
                            not in (' ', os.sep):
                             return
                         # insert at cursor os.sep: / or \
-                        self.txtinput_command_line.text = ''.join(('[',
+                        self.txtinput_command_line.text = u''.join(('[',
                                                           cur_dir,
                                                           ']:',
                                                           text_before_cursor,
@@ -313,7 +313,7 @@ class KivyConsole(GridLayout):
                             cmd_end = cmd_start
                         else:
                             cmd_end += 1
-                        display_dir(''.join((cur_dir,
+                        display_dir(u''.join((cur_dir,
                                              os_sep,
                                      text_before_cursor[cmd_start:cmd_end])),
                                    text_before_cursor[cmd_end:])
@@ -338,7 +338,7 @@ class KivyConsole(GridLayout):
                 col = len(self.cur_dir)+3
                 if self.txtinput_command_line.cursor_col < col:
                     if l[1] == 8:
-                        self.txtinput_command_line.text = ''.join(
+                        self.txtinput_command_line.text = u''.join(
                                                           ('[',
                                                           self.cur_dir,
                                                           ']:'))
@@ -366,7 +366,7 @@ class KivyConsole(GridLayout):
                 self.txtinput_run_command_refocus = False
                 instance.focus = True
                 instance.scroll_x = 0
-                instance.text = ''
+                instance.text = u''
 
     def on_enter(self, *l):
 
@@ -384,7 +384,7 @@ class KivyConsole(GridLayout):
                 cmd = shlex.split(str(command))
             except ValueError, err:
                 cmd = ''
-                self.textcache      = ''.join((self.textcache,
+                self.textcache      = u''.join((self.textcache,
                                                str(err.strerror),
                                                ' < ', command, ' >\n'))
             if len(cmd) >0:
@@ -408,10 +408,10 @@ class KivyConsole(GridLayout):
                     while txt != '':
                         self.popen_obj.stdout.flush()
                         txt             = txt.decode('utf-8')
-                        self.textcache  = ''.join((self.textcache, txt))
+                        self.textcache  = u''.join((self.textcache, txt))
                         txt             = self.popen_obj.stdout.readline()
                 except OSError or ValueError, err:
-                    self.textcache      = ''.join((self.textcache,
+                    self.textcache      = u''.join((self.textcache,
                                                    str(err.strerror),
                                                    ' < ', command, ' >\n'))
 
@@ -419,7 +419,7 @@ class KivyConsole(GridLayout):
             Clock.schedule_once(remove_command_interaction_widgets)
 
         #append text to textcache
-        self.textcache = ''.join((self.textcache,
+        self.textcache = u''.join((self.textcache,
                                   self.txtinput_command_line.text,
                                   '\n'))
         command = self.txtinput_command_line.text[len(self.cur_dir)+3:]
@@ -450,15 +450,16 @@ class KivyConsole(GridLayout):
                 else:
                     os.chdir(self.cur_dir + os.sep + command[3:])
                 self.cur_dir = os.getcwdu()
-                self.txtinput_command_line.text = ''.join(('[', self.cur_dir, ']:'))
+                self.txtinput_command_line.text = u''.join((
+                                                 '[', self.cur_dir, ']:'))
             except OSError, err:
-                self.textcache = ''.join((self.textcache,
+                self.textcache = u''.join((self.textcache,
                                           err.strerror,
                                           '\n'))
             self.txtinput_command_line_refocus = True
             return
 
-        self.txtinput_command_line.text = ''.join(('[', self.cur_dir, ']:'))
+        self.txtinput_command_line.text = u''.join(('[', self.cur_dir, ']:'))
         #store output in textcache
         parent = self.txtinput_command_line.parent
         #disable running a new command while and old one is running
