@@ -63,11 +63,9 @@ import shlex, subprocess, thread, os
 
 from kivy.uix.gridlayout import GridLayout
 from kivy.properties import NumericProperty, StringProperty
-from kivy.uix.image import Image
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
-from kivy.logger import Logger
 from kivy.lang import Builder
 from kivy.app import App
 
@@ -159,7 +157,7 @@ class KivyConsole(GridLayout):
             self.txtinput_command_line.do_cursor_movement('cursor_home')
             c = 0
             while c < col:
-                c+=1
+                c += 1
                 self.txtinput_command_line.do_cursor_movement('cursor_right')
 
         def search_history(up_dn):
@@ -181,7 +179,7 @@ class KivyConsole(GridLayout):
                     if self.command_history_pos <= 0:
                         self.command_history_pos = max_len
                         return
-                self.command_history_pos = self.command_history_pos + plus_minus
+                self.command_history_pos = self.command_history_pos +plus_minus
                 cmd = self.command_history[self.command_history_pos]
                 if  cmd[:len(command)] == command:
                     self.txtinput_command_line.text = ''.join(('[',
@@ -221,22 +219,17 @@ class KivyConsole(GridLayout):
                 def display_dir(cur_dir, starts_with = None):
                     #display contents of dir from cur_dir variable
                     starts_with_is_not_None = starts_with is not None
-
                     try:
                         dir_list        = os.listdir(cur_dir)
                     except OSError, err:
                         self.textcache  = ''.join((self.textcache,
-                                                   err.strerror,
-                                                   '\n'
-                                                   ))
+                                                   err.strerror, '\n'))
                         return
-
                     if starts_with_is_not_None:
                         len_starts_with = len(starts_with)
                     self.textcache      = ''.join((self.textcache,
                                                    'contents of directory: ',
-                                                   cur_dir,
-                                                   '\n'))
+                                                   cur_dir, '\n'))
                     txt                 = ''
                     no_of_matches       = 0
 
@@ -244,7 +237,7 @@ class KivyConsole(GridLayout):
                          if starts_with_is_not_None:
                              if _file[:len_starts_with] == starts_with:
                                  #if file matches starts with
-                                 txt = ''.join((txt, _file, ' '))
+                                 txt    = ''.join((txt, _file, ' '))
                                  no_of_matches += 1
                          else:
                              self.textcache = ''.join((self.textcache,
@@ -267,13 +260,13 @@ class KivyConsole(GridLayout):
                         move_cursor_to(col + (len_txt - len_starts_with) + 1)
                     elif no_of_matches > 1:
                         self.textcache = ''.join((self.textcache, txt))
-                    self.textcache = ''.join((self.textcache, '\n'))
+                    self.textcache     = ''.join((self.textcache, '\n'))
 
                 #send back space to command line -remove the tab
                 self.txtinput_command_line.do_backspace()
                 # store text before cursor for comparison
-                l_curdir= len(self.cur_dir)+3
-                col     = self.txtinput_command_line.cursor_col
+                l_curdir           = len(self.cur_dir) + 3
+                col                = self.txtinput_command_line.cursor_col
                 text_before_cursor = self.txtinput_command_line\
                                      .text[l_curdir: col]
                 #if empty or space before: list cur dir
@@ -526,4 +519,3 @@ class KivyConsole(GridLayout):
         else:
             #instance is command_line
             pass
-
