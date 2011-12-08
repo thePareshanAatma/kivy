@@ -381,11 +381,11 @@ class KivyConsole(GridLayout):
         def run_cmd(*l):
             # this is run inside a thread so take care avoid gui ops
             try:
-                cmd = shlex.split(str(command))
-            except ValueError, err:
+                cmd = shlex.split(str(command.encode('utf-8')))
+            except Exception as err:
                 cmd = ''
                 self.textcache      = u''.join((self.textcache,
-                                               str(err.strerror),
+                                               str(err),
                                                ' < ', command, ' >\n'))
             if len(cmd) >0:
                 try:
@@ -472,8 +472,8 @@ class KivyConsole(GridLayout):
         def interact_with_command(*l):
             if not self.popen_obj:
                 return
-            txt = l[0].text + '\n'
-            self.popen_obj.stdin.write(txt)
+            txt = l[0].text + u'\n'
+            self.popen_obj.stdin.write(txt.encode('utf-8'))
             self.popen_obj.stdin.flush()
             self.txtinput_run_command_refocus = True
 
