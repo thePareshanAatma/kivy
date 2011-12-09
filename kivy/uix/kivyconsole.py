@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 '''
 KivyConsole
-======
+===========
 
-.. image:: images/kivyConsole.jpg
+.. image:: images/KivyConsole.jpg
     :align: right
 
 :class:`KivyConsole` is a :class:`~kivy.uix.widget.Widget`
