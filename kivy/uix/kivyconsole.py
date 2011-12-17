@@ -389,7 +389,7 @@ class KivyConsole(GridLayout):
 
     def add_to_cache(self, _string):
         self.textcache  = _string
-        os.write(self.stdout.stdout_pipe, s)
+        #os.write(self.stdout.stdout_pipe, s)
 
     def on_enter(self, *l):
 
@@ -412,9 +412,6 @@ class KivyConsole(GridLayout):
                 self.add_to__cache(u''.join((self.textcache, str(err),
                                              ' <', command, ' >\n')))
             if len(cmd) >0:
-                #prev_sys_stdin      = sys.stdin
-                #prev_sys_stderror   = sys.stderr#logger handle
-                #prev_sys_stdout     = sys.stdout
                 try:
                     #execute command
                     self.popen_obj  = subprocess.Popen(
@@ -431,7 +428,6 @@ class KivyConsole(GridLayout):
                       universal_newlines = False,
                       startupinfo   = None,
                       creationflags = 0)
-                    #sys.stdout      = std_in_out(self, 'sys')
                     txt             = self.popen_obj.stdout.readline()
                     while txt != '':
                         self.popen_obj.stdout.flush()
@@ -443,9 +439,6 @@ class KivyConsole(GridLayout):
                     self.add_to_cache(u''.join((self.textcache,
                                                    str(err.strerror),
                                                    ' < ', command, ' >\n')))
-                #sys.stdout    = prev_sys_stdout
-                #sys.stderror = prev_sys_stderror
-                #sys.stdin    = prev_sys_stdin
 
             self.popen_obj = None
             Clock.schedule_once(remove_command_interaction_widgets)
@@ -576,9 +569,9 @@ class std_in_out(object):
                     if self.mode == 'stdin':
                         # run command
                         self.write(txt_line)
-                    else
+                    else:
                         self.obj.add_to__cache = ''.join((
-                                             self.obj.textcache,txt_line))
+                                             self.obj.textcache, txt_line))
                     txt_line = ''
             except OSError, e:
                 Logger.exception(e)
@@ -594,33 +587,37 @@ class std_in_out(object):
         #    return self.stdin_pipe
 
     def write(self, s):
+        Logger.debug('inside write')
         if self.mode == 'stdout':
             self.obj.add_to__cache = ''.join((self.obj.textcache, s))
         else:
             #process.stdout.write ...run command
-            if self.mode == 'stdin'
+            if self.mode == 'stdin':
                 self.obj.txtinput_command_line.text = ''.join((
                                          '[', self.obj.cur_dir, ']:', s))
                 self.obj.on_enter()
         self.flush()
 
     def read(self, no_of_bytes = 0):
-        if self.mode == 'sys':
-            #sys.stdin.read
+        Logger.debug('inside read')
+        if self.mode == 'stdin':
+            #stdin.read
+            Logger.exception('KivyConsole: can not read from a stdin pipe')
             return
-        else:
-            #process.stdout/in.read
-            if no_of_bytes == 0:
-                #return all data
-                while self.obj.command_status!='closed':
-                    pass
-                return self.obj.textcache
-            else:
-                return self.obj.textcache[:no_of_bytes]
+        #process.stdout/in.read
+        if no_of_bytes == 0:
+            #return all data
+            while self.obj.command_status!='closed':
+                pass
+            self.flush()
+            return self.textcache
+        self.flush()
+        return self.textcache[:no_of_bytes]
 
     def readline(self):
-        if self.mode == 'sys':
-            #sys.stdin.readline
+        if self.mode == 'stdin':
+            #stdin.readline
+            Logger.exception('KivyConsole: can not read from a stdin pipe')
             return
         else:
             #process.stdout.readline
@@ -633,7 +630,6 @@ class std_in_out(object):
             ###self. write to ...
             return txt[:x]
 
-    def readlines():
-
     def flush(self):
+        self.textcache = self.obj.textcache
         return
