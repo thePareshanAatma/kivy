@@ -11,7 +11,9 @@ from kivy.uix.kivyconsole import KivyConsole
 class TestConsoleApp(App):
 
     def build(self):
-        return KivyConsole()
+        console = KivyConsole()
+        console.stdout.write('ls -l')
+        return console
 
 
 if __name__ in ('__main__', '__android__'):

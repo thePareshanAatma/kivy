@@ -22,7 +22,10 @@ font_size:
 
     parent.add_widget(KivyConsole())
 
-TODO: Ensure unicode handling
+TODO: create a stdout and stdout pipe for
+      this console like in logger.[==    ]%done
+TODO: move everything that is non-specific to
+      a generic console in a different Project.[     ]%done
 
 Inside the console you can use the following shortcuts:
 Shortcut                     Function
@@ -47,22 +50,15 @@ Tab            If there is nothing before the cursur when tab is pressed
                else contents of the path before cursor containing
                     the commands matching the text before cursur will
                     be displayed
-
-WARNING: This is not a complete shell replacement, therefore shell specific
-commands and redirections like 'ls |grep lte' or dir >output.txt will not work. 
-If for some reason you need to run such commands, try running the platform
-shell first
-eg:  /bin/sh ...etc on nix platforms and cmd.exe on windows.
-As the ability to interact with the running command is built in, 
-you should be able to interact with the native shell.
 '''
 
 __all__ = ('KivyConsole', )
 
-import shlex, subprocess, thread, os
+import shlex, subprocess, thread, os, sys
 
 from kivy.uix.gridlayout import GridLayout
-from kivy.properties import NumericProperty, StringProperty
+from kivy.properties import NumericProperty, StringProperty,\
+                            BooleanProperty
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
@@ -89,7 +85,6 @@ class KivyConsole(GridLayout):
 
     cached_commands = NumericProperty(90)
     '''Indicates the no of commands to cache. Defaults to 90
-
     :data:`cached_commands` is a :class:`~kivy.properties.NumericProperty`,
     Default to '90'
     '''
@@ -111,6 +106,23 @@ class KivyConsole(GridLayout):
     Default to ''
     '''
 
+    shell = BooleanProperty(False)
+    '''Indicates the weather system shell is used to run the commands
+    :data:`shell` is a :class:`~kivy.properties.BooleanProperty`,
+    Default to 'False'
+
+    WARNING: Shell = True is a security risk and therefore = False by default,
+    As a result with shell = False some shell specific commands and redirections
+    like 'ls |grep lte' or dir >output.txt will not work. 
+    If for some reason you need to run such commands, try running the platform
+    shell first
+    eg:  /bin/sh ...etc on nix platforms and cmd.exe on windows.
+    As the ability to interact with the running command is built in, 
+    you should be able to interact with the native shell.
+
+    Shell = True, should be set only if absolutely necessary.
+    '''
+
     def __init__(self, **kwargs):
         super(KivyConsole, self).__init__(**kwargs)
         #initialisations
@@ -120,6 +132,9 @@ class KivyConsole(GridLayout):
         self.command_history      = []
         self.command_history_pos  = 0
         self.cur_dir              = os.getcwdu()
+        self.stdout               = std_in_out(self)
+        #self.stdin               = stdin(self)
+        #self.stderror            = stderror(self)
         self.txtinput_history_box = TextInput(
                                         size_hint = (1,.89),
                                         font      = self.font,
@@ -138,6 +153,7 @@ class KivyConsole(GridLayout):
         self.txtinput_command_line.bind(focus            = self.on_focus)
         self.txtinput_command_line.bind(text             = self.on_text)
         self.txtinput_history_box.bind(text              = self.on_text)
+        self.txtinput_command_line.focus                 = True
 
         self.add_widget(self.txtinput_history_box)
         self.add_widget(self.txtinput_command_line)
@@ -313,10 +329,11 @@ class KivyConsole(GridLayout):
                             cmd_end = cmd_start
                         else:
                             cmd_end += 1
-                        display_dir(u''.join((cur_dir,
-                                             os_sep,
-                                     text_before_cursor[cmd_start:cmd_end])),
-                                   text_before_cursor[cmd_end:])
+                        display_dir(u''.join((
+                                        cur_dir,
+                                        os_sep,
+                                        text_before_cursor[cmd_start:cmd_end])),
+                                        text_before_cursor[cmd_end:])
                 return
             if l[1] == 280:
                 #pgup: search last command starting with...
@@ -381,13 +398,18 @@ class KivyConsole(GridLayout):
         def run_cmd(*l):
             # this is run inside a thread so take care avoid gui ops
             try:
-                cmd = shlex.split(str(command.encode('utf-8')))
+                comand = command.encode('utf-8')
+                cmd    = shlex.split(str(command))\
+                         if not self.shell else command
             except Exception as err:
                 cmd = ''
                 self.textcache      = u''.join((self.textcache,
                                                str(err),
                                                ' < ', command, ' >\n'))
             if len(cmd) >0:
+                #prev_sys_stdin      = sys.stdin
+                #prev_sys_stderror   = sys.stderr#logger handle
+                prev_sys_stdout     = sys.stdout
                 try:
                     #execute command
                     self.popen_obj  = subprocess.Popen(
@@ -398,12 +420,13 @@ class KivyConsole(GridLayout):
                       stderr        = subprocess.STDOUT,
                       preexec_fn    = None,
                       close_fds     = False,
-                      shell         = False,
+                      shell         = self.shell,
                       cwd           = self.cur_dir,
                       env           = None,
                       universal_newlines = False,
                       startupinfo   = None,
                       creationflags = 0)
+                    sys.stdout      = std_in_out(self, 'sys')
                     txt             = self.popen_obj.stdout.readline()
                     while txt != '':
                         self.popen_obj.stdout.flush()
@@ -414,6 +437,9 @@ class KivyConsole(GridLayout):
                     self.textcache      = u''.join((self.textcache,
                                                    str(err.strerror),
                                                    ' < ', command, ' >\n'))
+                sys.stdout    = prev_sys_stdout
+                #sys.stderror = prev_sys_stderror
+                #sys.stdin    = prev_sys_stdin
 
             self.popen_obj = None
             Clock.schedule_once(remove_command_interaction_widgets)
@@ -520,3 +546,51 @@ class KivyConsole(GridLayout):
         else:
             #instance is command_line
             pass
+
+
+class std_in_out(object):
+    ''' class for writing to/reading from this console
+    '''
+
+    def __init__(self, obj, mode = 'proc'):
+        self.obj  = obj
+        self.mode = mode
+
+    def write(self, s):
+        if self.mode == 'sys':
+            self.obj.textcache = ''.join((self.obj.textcache, s))
+        else:
+            #process.stdout.write ...run command
+            self.obj.txtinput_command_line.text = ''.join((
+                                         '[', self.obj.cur_dir, ']:', s))
+            self.obj.on_enter()
+        self.flush()
+
+    def read(self, no_of_bytes = 0):
+        if self.mode == 'sys':
+            #sys.stdin.read
+            return
+        else:
+            #process.stdout.read
+            if no_of_bytes == 0:
+                #return all data
+                return self.obj.textcache
+            else:
+                return self.obj.textcache[:no_of_bytes]
+
+    def readline(self):
+        if self.mode == 'sys':
+            #sys.stdin.readline
+            return
+        else:
+            #process.stdout.readline
+            txt = self.obj.textcache
+            x = txt.find('\n')
+            if x < 0:
+	      sys.stderr.write('kivy_console: no more data')
+	      return
+            self.obj.textcache = txt[x:]
+            return txt[:x]
+
+    def flush(self):
+        return
