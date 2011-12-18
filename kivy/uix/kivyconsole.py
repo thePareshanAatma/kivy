@@ -377,7 +377,7 @@ class KivyConsole(GridLayout):
                 instance.text = u''
 
     def add_to_cache(self, _string):
-        self.textcache  = u''.join((self.textcache, _string))
+        #self.textcache  = u''.join((self.textcache, _string))
         os.write(self.stdout.stdout_pipe, _string)
         _string = None
 
