@@ -15,6 +15,7 @@ cached_history  :
 cached_commands :
 font            :
 font_size       :
+shell           :
 
 ''Versionadded:: 1.0.?TODO
 
@@ -403,7 +404,7 @@ class KivyConsole(GridLayout):
                 instance.text = u''
 
     def add_to_cache(self, _string):
-        os.write(self.stdout.stdout_pipe, _string)
+        os.write(self.stdout.stdout_pipe, _string.encode('utf-8'))
         self.stdout.flush()
         _string = None
 
@@ -581,7 +582,7 @@ class std_in_out(object):
                         self.write(txt_line)
                     else:
                         self.obj.textcache =\
-                                        u''.join((self.obj.textcache,txt_line))
+                   u''.join((self.obj.textcache, txt_line.decode('utf-8')))
                         self.flush()
                     txt_line = ''
             except OSError, e:
