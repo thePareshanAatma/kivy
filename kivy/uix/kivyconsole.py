@@ -483,7 +483,7 @@ class KivyConsole(GridLayout):
         # if command = cd change directory
         if command.startswith('cd '):
             try:
-                if command[3:] == os.sep:
+                if command[3] == os.sep:
                     os.chdir(command[3:])
                 else:
                     os.chdir(self.cur_dir + os.sep + command[3:])
@@ -491,6 +491,8 @@ class KivyConsole(GridLayout):
                 self.txtinput_command_line.text = u''.join((
                                                  '[', self.cur_dir, ']:'))
             except OSError, err:
+                Logger.debug('Shell Console: err:'+ err.strerror +
+                             ' directory:' + command[3:] )
                 self.add_to_cache(u''.join((err.strerror,'\n')))
             self.txtinput_command_line_refocus = True
             return
@@ -576,7 +578,7 @@ class std_in_out(object):
             try:
                 txt = os.read(self.stdin_pipe, 1)
                 txt_line = ''.join((txt_line, txt))
-                if txt == '\n':
+                if txt == '\n':# ###
                     if self.mode == 'stdin':
                         # run command
                         self.write(txt_line)

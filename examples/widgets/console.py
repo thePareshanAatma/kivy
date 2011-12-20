@@ -22,7 +22,7 @@ class TestConsoleApp(App):
         #to run command
         console.stdin.write('uname -r')
         #or
-        subprocess.Popen(('echo','99'), stdout = console.stdin)
+        subprocess.Popen(('echo','ls -ls'), stdout = console.stdin)
         #to display something on stdout write to stdout
         console.stdout.write('this will be written to the stdout\n')
         # or
