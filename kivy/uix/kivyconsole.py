@@ -428,6 +428,8 @@ class KivyConsole(GridLayout):
                 cmd = ''
                 self.add_to_cache(u''.join((str(err), ' <', command, ' >\n')))
             if len(cmd) >0:
+	        prev_stdout = sys.stdout
+                sys.stdout  = self.stdout
                 try:
                     #execute command
                     self.popen_obj  = subprocess.Popen(
@@ -454,6 +456,7 @@ class KivyConsole(GridLayout):
                     self.add_to_cache(u''.join((str(err.strerror),
                                                 ' < ', command, ' >\n')))
 
+                sys.stdout = prev_stdout
             self.popen_obj = None
             Clock.schedule_once(remove_command_interaction_widgets)
             self.command_status = 'closed'
@@ -578,7 +581,7 @@ class std_in_out(object):
             try:
                 txt = os.read(self.stdin_pipe, 1)
                 txt_line = ''.join((txt_line, txt))
-                if txt == '\n':# ###
+                if txt == '\n':#
                     if self.mode == 'stdin':
                         # run command
                         self.write(txt_line)
@@ -601,6 +604,7 @@ class std_in_out(object):
         return self.stdout_pipe
 
     def write(self, s):
+        Logger.debug('write called')
         if self.mode == 'stdout':
             self.obj.add_to_cache(s)
         else:
