@@ -15,7 +15,7 @@ class TestConsoleApp(App):
     def build(self):
         console = KivyConsole()
         #console.stdin.write('ls -l')
-        subprocess.Popen('ls -l', stdout = console.stdout, shell = True)
+        subprocess.Popen(('ls','-l'), stdout = console.stdout)
         #text = console.stdout.read()
         #subprocess.Popen('dir', stdout = console.stdout, shell = True)
         #text += console.stdout.read()

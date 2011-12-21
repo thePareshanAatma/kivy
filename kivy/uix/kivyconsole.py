@@ -65,6 +65,7 @@ from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.app import App
 from kivy.logger import Logger
+from kivy.core.window import Window
 
 Builder.load_string('''
 <KivyConsole>:
@@ -166,17 +167,13 @@ class KivyConsole(GridLayout):
         def change_txtcache(*l):
             Clock.unschedule(change_txtcache)
             self.txtinput_history_box.text = self.textcache
-
+        Clock.unschedule(change_txtcache)
         Clock.schedule_interval(change_txtcache, .5)
 
     def on_keyboard(self, *l):
-
         def move_cursor_to(col):
-            self.txtinput_command_line.do_cursor_movement('cursor_home')
-            c = 0
-            while c < col:
-                c += 1
-                self.txtinput_command_line.do_cursor_movement('cursor_right')
+            self.txtinput_command_line.cursor =\
+                                       col, self.txtinput_command_line.cursor[1]
 
         def search_history(up_dn):
             if up_dn == 'up':
@@ -209,7 +206,7 @@ class KivyConsole(GridLayout):
             self.command_history_pos = max_len + 1
 
         if self.txtinput_command_line.focus:
-            if l[1] ==273:
+            if l[1] == 273:
                 #up arrow: display previous command
                 if self.command_history_pos> 0 :
                     self.command_history_pos = self.command_history_pos - 1
@@ -240,14 +237,12 @@ class KivyConsole(GridLayout):
                     try:
                         dir_list            = os.listdir(cur_dir)
                     except OSError, err:
-                        self.add_to__cache  = u''.join((self.textcache,
-                                                   err.strerror, '\n'))
+                        self.add_to_cache(u''.join((err.strerror, '\n')))
                         return
                     if starts_with_is_not_None:
                         len_starts_with     = len(starts_with)
-                    self.add_to__cache      = u''.join((self.textcache,
-                                                   'contents of directory: ',
-                                                   cur_dir, '\n'))
+                    self.add_to_cache(u''.join(('contents of directory: ',
+                                                cur_dir, '\n')))
                     txt                     = u''
                     no_of_matches           = 0
 
@@ -258,8 +253,7 @@ class KivyConsole(GridLayout):
                                  txt    = u''.join((txt, _file, ' '))
                                  no_of_matches += 1
                          else:
-                             self.add_to__cache = u''.join((self.textcache,
-                                                       _file,'\t'))
+                             self.add_to_cache(u''.join((_file,'\t')))
                     if no_of_matches == 1:
                         len_txt = len(txt)-1
                         os_sep = os.sep\
@@ -277,8 +271,8 @@ class KivyConsole(GridLayout):
                                       self.txtinput_command_line.text[col:]))
                         move_cursor_to(col + (len_txt - len_starts_with) + 1)
                     elif no_of_matches > 1:
-                        self.add_to__cache = u''.join((self.textcache, txt))
-                    self.add_to__cache     = u''.join((self.textcache, '\n'))
+                        self.add_to_cache(txt)
+                    self.add_to_cache('\n')
 
                 #send back space to command line -remove the tab
                 self.txtinput_command_line.do_backspace()
@@ -368,13 +362,8 @@ class KivyConsole(GridLayout):
         if value:
            #focused
            if instance is self.txtinput_command_line:
-               if self.win is None:
-                   win = self
-                   while win.parent is not None and\
-                       str(win)[:17] != '<kivy.core.window':
-                       win = win.parent
-                   self.win = win
-                   win.bind(on_keyboard = self.on_keyboard)
+	       Window.unbind(on_keyboard = self.on_keyboard)
+               Window.bind(on_keyboard = self.on_keyboard)
         else:
             #defocused
             if self.txtinput_command_line_refocus:
@@ -388,8 +377,9 @@ class KivyConsole(GridLayout):
                 instance.text = u''
 
     def add_to_cache(self, _string):
-        self.textcache  = _string
-        #os.write(self.stdout.stdout_pipe, s)
+        self.textcache  = u''.join((self.textcache, _string))
+        os.write(self.stdout.stdout_pipe, _string)
+        _string = None
 
     def on_enter(self, *l):
 
@@ -409,8 +399,7 @@ class KivyConsole(GridLayout):
                          if not self.shell else command
             except Exception as err:
                 cmd = ''
-                self.add_to__cache(u''.join((self.textcache, str(err),
-                                             ' <', command, ' >\n')))
+                self.add_to_cache(u''.join((str(err), ' <', command, ' >\n')))
             if len(cmd) >0:
                 try:
                     #execute command
@@ -431,23 +420,19 @@ class KivyConsole(GridLayout):
                     txt             = self.popen_obj.stdout.readline()
                     while txt != '':
                         self.popen_obj.stdout.flush()
-                        sys.stdout.flush()
                         txt             = txt.decode('utf-8')
-                        self.add_to_cache(u''.join((self.textcache, txt)))
+                        self.add_to_cache(txt)
                         txt             = self.popen_obj.stdout.readline()
                 except OSError or ValueError, err:
-                    self.add_to_cache(u''.join((self.textcache,
-                                                   str(err.strerror),
-                                                   ' < ', command, ' >\n')))
+                    self.add_to_cache(u''.join((str(err.strerror),
+                                                ' < ', command, ' >\n')))
 
             self.popen_obj = None
             Clock.schedule_once(remove_command_interaction_widgets)
             self.command_status = 'closed'
 
         #append text to textcache
-        self.add_to_cache(u''.join((self.textcache,
-                                  self.txtinput_command_line.text,
-                                  '\n')))
+        self.add_to_cache(u''.join((self.txtinput_command_line.text, '\n')))
         command = self.txtinput_command_line.text[len(self.cur_dir)+3:]
 
         if command  == '':
@@ -479,9 +464,7 @@ class KivyConsole(GridLayout):
                 self.txtinput_command_line.text = u''.join((
                                                  '[', self.cur_dir, ']:'))
             except OSError, err:
-                self.add_to_cache(u''.join((self.textcache,
-                                          err.strerror,
-                                          '\n')))
+                self.add_to_cache(u''.join((err.strerror,'\n')))
             self.txtinput_command_line_refocus = True
             return
 
@@ -570,8 +553,8 @@ class std_in_out(object):
                         # run command
                         self.write(txt_line)
                     else:
-                        self.obj.add_to__cache = ''.join((
-                                             self.obj.textcache, txt_line))
+                        self.obj.textcache =\
+                                        u''.join((self.obj.textcache,txt_line))
                     txt_line = ''
             except OSError, e:
                 Logger.exception(e)
@@ -581,15 +564,11 @@ class std_in_out(object):
         os.close(self.stdout_pipe)
 
     def fileno(self):
-        #if self.mode == 'stdin':
         return self.stdout_pipe
-        #else:
-        #    return self.stdin_pipe
 
     def write(self, s):
-        Logger.debug('inside write')
         if self.mode == 'stdout':
-            self.obj.add_to__cache = ''.join((self.obj.textcache, s))
+            self.obj.add_to_cache(s)
         else:
             #process.stdout.write ...run command
             if self.mode == 'stdin':
@@ -599,7 +578,6 @@ class std_in_out(object):
         self.flush()
 
     def read(self, no_of_bytes = 0):
-        Logger.debug('inside read')
         if self.mode == 'stdin':
             #stdin.read
             Logger.exception('KivyConsole: can not read from a stdin pipe')
@@ -621,12 +599,13 @@ class std_in_out(object):
             return
         else:
             #process.stdout.readline
-            txt = self.obj.textcache
+            self.flush()
+            txt = self.textcache
             x = txt.find('\n')
             if x < 0:
-                sys.stderr.write('kivy_console: no more data')
+                Logger.Debug('console_shell: no more data')
                 return
-            self.obj.textcache = txt[x:]
+            self.textcache = txt[x:]
             ###self. write to ...
             return txt[:x]
 
