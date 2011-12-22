@@ -11,22 +11,48 @@ Purpose: Providing a system console for debugging kivy by running another
 instance of kivy in this console and displaying it's output.
 To configure, you can use
 
-cached_history :
+cached_history  :
 cached_commands :
-font :
-font_size:
+font            :
+font_size       :
 
 ''Versionadded:: 1.0.?TODO
 
 ''Usage:
+    from kivy.uix.kivyconsole import KivyConsole
 
     parent.add_widget(KivyConsole())
 
-TODO: create a stdout and stdout pipe for
-      this console like in logger.[==    ]%done
+or
+
+    console = KivyConsole()
+
+To run a command:
+
+    console.stdin.write('ls -l')
+
+or
+    subprocess.Popen(('echo','ls'), stdout = console.stdin)
+
+To display something on stdout write to stdout
+
+    console.stdout.write('this will be written to the stdout\n')
+
+or
+    subprocess.Popen('', stdout = console.stdout, shell = True)
+
+Warning: To read from stdout remember that the process is run in a thread, give
+it time to complete otherwise you might get a empty or partial string; returning
+whatever has been written to the stdout pipe till the time read() was called.
+
+    text = console.stdout.read() or read(no_of_bytes) or readline()
+
+TODO: create a stdin and stdout pipe for
+      this console like in logger.[==== ]%done
 TODO: move everything that is non-specific to
       a generic console in a different Project.[     ]%done
 
+''Shortcuts:
 Inside the console you can use the following shortcuts:
 Shortcut                     Function
 _________________________________________________________
@@ -168,7 +194,7 @@ class KivyConsole(GridLayout):
             Clock.unschedule(change_txtcache)
             self.txtinput_history_box.text = self.textcache
         Clock.unschedule(change_txtcache)
-        Clock.schedule_interval(change_txtcache, .5)
+        Clock.schedule_interval(change_txtcache, .1)
 
     def on_keyboard(self, *l):
         def move_cursor_to(col):
@@ -377,8 +403,8 @@ class KivyConsole(GridLayout):
                 instance.text = u''
 
     def add_to_cache(self, _string):
-        #self.textcache  = u''.join((self.textcache, _string))
         os.write(self.stdout.stdout_pipe, _string)
+        self.stdout.flush()
         _string = None
 
     def on_enter(self, *l):
@@ -540,6 +566,7 @@ class std_in_out(object):
         self.mode = mode
         self.stdin_pipe, self.stdout_pipe = os.pipe()
         thread.start_new_thread(self.read_from_in_pipe,())
+        self.textcache = None
 
     def read_from_in_pipe(self, *l):
         txt = '\n'
@@ -555,13 +582,17 @@ class std_in_out(object):
                     else:
                         self.obj.textcache =\
                                         u''.join((self.obj.textcache,txt_line))
+                        self.flush()
                     txt_line = ''
             except OSError, e:
                 Logger.exception(e)
 
-    def __del__(self):
+    def close(self):
         os.close(self.stdin_pipe)
         os.close(self.stdout_pipe)
+
+    def __del__(self):
+        self.close()
 
     def fileno(self):
         return self.stdout_pipe
@@ -575,7 +606,7 @@ class std_in_out(object):
                 self.obj.txtinput_command_line.text = ''.join((
                                          '[', self.obj.cur_dir, ']:', s))
                 self.obj.on_enter()
-        self.flush()
+        #self.flush()
 
     def read(self, no_of_bytes = 0):
         if self.mode == 'stdin':
@@ -585,11 +616,15 @@ class std_in_out(object):
         #process.stdout/in.read
         if no_of_bytes == 0:
             #return all data
+            if self.textcache is None:
+                self.flush()
             while self.obj.command_status!='closed':
                 pass
-            self.flush()
             return self.textcache
-        self.flush()
+        try:
+            self.textcache = self.textcache[no_of_bytes:]
+        except IndexError:
+            self.textcache = self.textcache
         return self.textcache[:no_of_bytes]
 
     def readline(self):
@@ -599,7 +634,8 @@ class std_in_out(object):
             return
         else:
             #process.stdout.readline
-            self.flush()
+            if self.textcache is None:
+                self.flush()
             txt = self.textcache
             x = txt.find('\n')
             if x < 0:
