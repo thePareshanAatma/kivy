@@ -37,7 +37,7 @@ class TestConsoleApp(App):
             Clock.unschedule(read_output)
 
         from kivy.clock import Clock
-        Clock.schedule_interval(read_output, .5)
+        Clock.schedule_interval(read_output, .1)
         return bl
 
 
