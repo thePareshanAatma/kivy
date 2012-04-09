@@ -93,6 +93,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.properties import NumericProperty, StringProperty,\
                             BooleanProperty
 from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 from kivy.lang import Builder
@@ -173,10 +174,11 @@ class KivyConsole(GridLayout):
         self.stdin = std_in_out(self, 'stdin')
         #self.stderror = stderror(self)
         self.txtinput_history_box = TextInput(
-            size_hint = (1, .89),
+            size_hint = (1, None),
             font = self.font,
             font_size = self.font_size,
-            text = self.textcache)
+            text = self.textcache,
+            readonly = True)
         self.txtinput_command_line= TextInput(
             multiline = False,
             size_hint = (1, None),
@@ -192,7 +194,9 @@ class KivyConsole(GridLayout):
         self.txtinput_history_box.bind(text = self.on_text)
         self.txtinput_command_line.focus = True
 
-        self.add_widget(self.txtinput_history_box)
+        scrlv = ScrollView()
+        scrlv.add_widget(self.txtinput_history_box)
+        self.add_widget(scrlv)
         self.add_widget(self.txtinput_command_line)
 
     def prompt(self, *l):
@@ -203,10 +207,13 @@ class KivyConsole(GridLayout):
         #use schedule interval so as to fill TextInput Box
         #as few times as possible calling 'TextInput.text =' is sloooow
         def change_txtcache(*l):
-            Clock.unschedule(change_txtcache)
-            self.txtinput_history_box.text = self.textcache
+            tihb = self.txtinput_history_box
+            tihb.text = self.textcache
+            tihb.height = max((len(tihb._lines)+1) *\
+                (tihb.line_height + tihb._line_spacing), tihb.parent.height)
+            tihb.parent.scroll_y = 0
         Clock.unschedule(change_txtcache)
-        Clock.schedule_interval(change_txtcache, .1)
+        Clock.schedule_once(change_txtcache, .1)
 
     def on_keyboard(self, *l):
 
