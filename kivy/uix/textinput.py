@@ -334,20 +334,38 @@ class TextInput(Widget):
             return
         cc, cr = self.cursor
         sci = self.cursor_index
+        _lines = self._lines
         ci = sci()
-        text = self._lines[cr]
+        text = _lines[cr]
         len_str = len(substring)
         insert_at_end = True if text[cc:] == '' else False
-        new_text = text[:cc] + substring + text[cc:]
+        new_text = ''.join((text[:cc], substring, text[cc:]))
         self._set_line_text(cr, new_text)
-        if len_str > 1 or substring == '\n':
+        wrap = (True
+                if (self._get_text_width(new_text, self.tab_width,
+                    self._label_cached) > self.width)
+                else False)
+        if (len_str > 1 or substring == '\n'):
             # Avoid refreshing text on every keystroke.
             # Allows for faster typing of text when the amount of text in
             # TextInput gets large.
             start = cr
+            finish = cr + 1
+            #while not self._lines_flags[finish]:
+            #    print _lines[finish]
+            #    finish += 1
+            #print finish, new_text
+
             lines, lineflags = self._split_smart(new_text)
             len_lines = len(lines)
             finish = cr + (len_lines - 1)
+
+            # restore the line flags of the first line of new_text
+            lineflags[0] = (FL_IS_NEWLINE
+                            if substring == '\n'
+                            else self._lines_flags[start])
+            #print ('enter', lineflags[0]) if substring == '\n' else 'not'
+
             self._trigger_refresh_text('insert', start, finish, lines,
                 lineflags, len_lines)
         # reset cursor
@@ -958,14 +976,10 @@ class TextInput(Widget):
 
     def _insert_lines(self, start, finish, len_lines, _lines_flags, _lines,
         _lines_labels, _line_rects):
+
             _lins_flags = []
             _lins_flags.extend(self._lines_flags[:start])
             if len_lines:
-                # if not inserting at first line then
-                if start:
-                    # make sure new line is set in line flags cause
-                    # _split_smart assumes first line to be not a new line
-                    _lines_flags[0] = 1
                 _lins_flags.extend(_lines_flags)
             _lins_flags.extend(self._lines_flags[finish:])
             self._lines_flags = _lins_flags

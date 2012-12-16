@@ -102,8 +102,6 @@ from kivy.app import App
 from kivy.logger import Logger
 from kivy.core.window import Window
 from kivy.utils import platform
-from kivy.factory import Factory
-import array
 
 
 Builder.load_string('''
@@ -115,7 +113,8 @@ Builder.load_string('''
         TextInput:
             id: history_box
             size_hint: (1, None)
-            font: root.font
+            height: 801
+            font_name: root.font_name
             font_size: root.font_size
             readonly: True
             foreground_color: root.foreground_color
@@ -125,14 +124,16 @@ Builder.load_string('''
         id: command_line
         multiline: False
         size_hint: (1, None)
-        font: root.font
+        font_name: root.font_name
         font_size: root.font_size
         readonly: root.readonly
         foreground_color: root.foreground_color
         background_color: root.background_color
         height: 36
         on_text_validate: root.on_enter(*args)
-        on_focus: root.on_focus(*args)
+        on_touch_up:
+            self.collide_point(*args[1].pos)\\
+            and root._move_cursor_to_end(self)
 ''')
 
 
@@ -141,24 +142,24 @@ class KivyConsole(GridLayout):
     commands
 
     '''
-    
+
     readonly = BooleanProperty(False)
     '''This defines weather a person can enter commands in the console
-    
+
     :data:`readonly` is an :class:`~kivy.properties.BooleanProperty`,
     Default to 'False'
     '''
-    
+
     foreground_color = ListProperty((.5, .5, .5, .93))
     '''This defines the color of the text in the console
-    
+
     :data:`foreground_color` is an :class:`~kivy.properties.ListProperty`,
     Default to '(.5, .5, .5, .93)'
     '''
-    
+
     background_color = ListProperty((0, 0, 0, 1))
     '''This defines the color of the text in the console
-    
+
     :data:`foreground_color` is an :class:`~kivy.properties.ListProperty`,
     Default to '(0, 0, 0, 1)'
     '''
@@ -176,7 +177,7 @@ class KivyConsole(GridLayout):
     :data:`cached_commands` is a :class:`~kivy.properties.NumericProperty`,
     Default to '90'
     '''
-    font = StringProperty('data/fonts/DroidSansMono.ttf')
+    font_name = StringProperty('data/fonts/DroidSansMono.ttf')
     '''Indicates the font Style used in the console
 
     :data:`font` is a :class:`~kivy.properties.StringProperty`,
@@ -199,11 +200,11 @@ class KivyConsole(GridLayout):
     :data:`font_size` is a :class:`~kivy.properties.NumericProperty`,
     Default to '9'
     '''
-    
-    textcache = StringProperty('')
+
+    textcache = ListProperty(['', ])
     '''Indicates the cache of the commands and their output
 
-    :data:`textcache` is a :class:`~kivy.properties.StringProperty`,
+    :data:`textcache` is a :class:`~kivy.properties.ListProperty`,
     Default to ''
     '''
 
@@ -226,7 +227,6 @@ class KivyConsole(GridLayout):
     '''
 
     def __init__(self, **kwargs):
-        self._skip_textcache = False
         self.register_event_type('on_subprocess_done')
         super(KivyConsole, self).__init__(**kwargs)
         #initialisations
@@ -242,47 +242,59 @@ class KivyConsole(GridLayout):
         self.stdin = std_in_out(self, 'stdin')
         #self.stderror = stderror(self)
         # delayed initialisation
-        Clock.schedule_once(self.initialize)
+        Clock.schedule_once(self._initialize)
+        self_change_txtcache = self._change_txtcache
+        _trig = Clock.create_trigger(self_change_txtcache)
+        self.bind(textcache=_trig)
 
-        Clock.schedule_once(
-                        lambda dt: self.on_textcache(self, self.textcache), 0)
+    def clear(self, *args):
+        self.txtinput_history_box.text = ''
+        self.textcache = ['', ]
 
-    def initialize(self, dt):
-        self.txtinput_history_box.text = self.textcache
+    def _initialize(self, dt):
+        cl = self.txtinput_command_line
+        self.txtinput_history_box.text = u''.join(self.textcache)
         self.txtinput_command_line.text = self.prompt()
+        self.txtinput_command_line.bind(focus=self.on_focus)
+        Clock.schedule_once(self._change_txtcache)
+        self._focus(self.txtinput_command_line)
 
-    def prompt(self, *l):
+    def _move_cursor_to_end(self, instance):
+        Clock.schedule_once(lambda dt:
+            instance.do_cursor_movement('cursor_end'), -1)
+
+    def _focus(self, widg, t_f=True):
+        Clock.schedule_once(partial(self._deffered_focus, widg, t_f))
+
+    def _deffered_focus(self, widg, t_f, dt):
+        if widg.get_root_window():
+            widg.focus = t_f
+
+    def prompt(self, *args):
         return "[%s@%s %s]>> " % (
-            os.environ.get('USER'), os.uname()[1], os.path.basename(self.cur_dir))
+            os.environ.get('USER'), os.uname()[1],
+                os.path.basename(self.cur_dir))
 
-    def on_textcache(self, instance, txt):
-        if self._skip_textcache:
-            self._skip_textcache = False
+    def _change_txtcache(self, *args):
+        tihb = self.txtinput_history_box
+        tihb.text = ''.join(self.textcache)
+        if not self.get_root_window():
             return
-        # use schedule interval so as to fill TextInput Box
-        # as few times as possible.
-        def change_txtcache(*l):
-            # check if history_box has more text than indicated buy
-            # self.cached_history and remove excess lines from top
-            txt = self.textcache
-            tihb = self.txtinput_history_box
-            tihb.text = txt
-            tihb.height = max((len(tihb._lines)+1) *\
-                (tihb.line_height + tihb._line_spacing), tihb.parent.height)
-            tihb.parent.scroll_y = 0
-        Clock.unschedule(change_txtcache)
-        Clock.schedule_once(change_txtcache, .5)
-        
+        tihb.height = max((len(tihb._lines) + 1) *
+            (tihb.line_height + tihb._line_spacing), tihb.parent.height)
+        tihb.parent.scroll_y = 0
+
     def on_text(self, instance, txt):
-        split_lines = instance._lines
-        _lines = len(split_lines)
-        extra_lines = _lines - self.cached_history
-        if extra_lines > 0:
-            self._skip_textcache = True
-            _removelen = 0
-            for line in split_lines[:extra_lines]:
-                _removelen += len(line)
-            self.textcache = txt[_removelen:]
+        # check if history_box has more text than indicated buy
+        # self.cached_history and remove excess lines from top
+        if txt == '':
+            return
+        try:
+            #self._skip_textcache = True
+            self.textcache = self.textcache[-self.cached_history:]
+        except IndexError:
+            pass
+            #self._skip_textcache = False
 
     def on_keyboard(self, *l):
         ticl = self.txtinput_command_line
@@ -299,12 +311,12 @@ class KivyConsole(GridLayout):
             l_curdir = len(self.prompt())
             col = ticl.cursor_col
             command = ticl.text[l_curdir: col]
-            max_len = len(self.command_history) -1
+            max_len = len(self.command_history) - 1
             chp = self.command_history_pos
 
             while max_len >= 0:
                 if plus_minus == 1:
-                    if self.command_history_pos > max_len -1:
+                    if self.command_history_pos > max_len - 1:
                         self.command_history_pos = max_len
                         return
                 else:
@@ -312,7 +324,7 @@ class KivyConsole(GridLayout):
                         self.command_history_pos = max_len
                         return
                 self.command_history_pos = self.command_history_pos\
-                    +plus_minus
+                    + plus_minus
                 cmd = self.command_history[self.command_history_pos]
                 if  cmd[:len(command)] == command:
                     ticl.text = u''.join((
@@ -326,16 +338,14 @@ class KivyConsole(GridLayout):
                 # up arrow: display previous command
                 if self.command_history_pos > 0:
                     self.command_history_pos = self.command_history_pos - 1
-                    ticl.text = u''.join(
-                                                      (self.prompt(),
+                    ticl.text = u''.join((self.prompt(),
                               self.command_history[self.command_history_pos]))
                 return
             if l[1] == 274:
                 # dn arrow: display next command
                 if self.command_history_pos < len(self.command_history) - 1:
                     self.command_history_pos = self.command_history_pos + 1
-                    ticl.text = u''.join(
-                                                     (self.prompt(),
+                    ticl.text = u''.join((self.prompt(),
                               self.command_history[self.command_history_pos]))
                 else:
                     self.command_history_pos = len(self.command_history)
@@ -345,7 +355,7 @@ class KivyConsole(GridLayout):
                 return
             if l[1] == 9:
                 # tab: autocomplete
-                def display_dir(cur_dir, starts_with = None):
+                def display_dir(cur_dir, starts_with=None):
                     # display contents of dir from cur_dir variable
                     starts_with_is_not_None = starts_with is not None
                     try:
@@ -369,11 +379,11 @@ class KivyConsole(GridLayout):
                         else:
                             self.add_to_cache(u''.join((_file, '\t')))
                     if no_of_matches == 1:
-                        len_txt = len(txt)-1
+                        len_txt = len(txt) - 1
                         cmdl_text = ticl.text
                         len_cmdl = len(cmdl_text)
-                        os_sep = os.sep if col == len_cmdl or (col<len_cmdl\
-                            and cmdl_text[col]!=os.sep) else ''
+                        os_sep = os.sep if col == len_cmdl or (col < len_cmdl
+                            and cmdl_text[col] != os.sep) else ''
                         ticl.text = u''.join(
                             (self.prompt(), text_before_cursor,
                             txt[len_starts_with:len_txt], os_sep,
@@ -391,7 +401,7 @@ class KivyConsole(GridLayout):
                 text_before_cursor = ticl.text[l_curdir: col]
                 # if empty or space before: list cur dir
                 if text_before_cursor == ''\
-                   or ticl.text[col-1] == ' ':
+                   or ticl.text[col - 1] == ' ':
                     display_dir(self.cur_dir)
                 # if in mid command:
                 else:
@@ -404,7 +414,7 @@ class KivyConsole(GridLayout):
                                  else os.sep
                     os_sep = os.sep if cur_dir != os.sep else ''
                     cmd_end = text_before_cursor.rfind(os.sep)
-                    len_txt_bef_cur = len(text_before_cursor)-1
+                    len_txt_bef_cur = len(text_before_cursor) - 1
                     if cmd_end == len_txt_bef_cur:
                         # display files in path
                         if text_before_cursor[cmd_start] == os.sep:
@@ -414,15 +424,15 @@ class KivyConsole(GridLayout):
                     elif text_before_cursor[len_txt_bef_cur] == '.':
                         # if / already there return
                         if len(ticl.text) > col\
-                           and ticl.text[col] ==os.sep:
+                           and ticl.text[col] == os.sep:
                             return
-                        if text_before_cursor[len_txt_bef_cur-1] == '.':
+                        if text_before_cursor[len_txt_bef_cur - 1] == '.':
                             len_txt_bef_cur -= 1
-                        if text_before_cursor[len_txt_bef_cur-1]\
+                        if text_before_cursor[len_txt_bef_cur - 1]\
                            not in (' ', os.sep):
                             return
                         # insert at cursor os.sep: / or \
-                        ticl.text=u''.join((self.prompt(),
+                        ticl.text = u''.join((self.prompt(),
                             text_before_cursor, os_sep, ticl.text[col:]))
                     else:
                         if cmd_end < 0:
@@ -463,13 +473,14 @@ class KivyConsole(GridLayout):
         if value:
             # focused
             if instance is self.txtinput_command_line:
-                Window.unbind(on_keyboard = self.on_keyboard)
-                Window.bind(on_keyboard = self.on_keyboard)
+                Window.unbind(on_keyboard=self.on_keyboard)
+                Window.bind(on_keyboard=self.on_keyboard)
         else:
             # defocused
             if self.txtinput_command_line_refocus:
                 self.txtinput_command_line_refocus = False
-                self.txtinput_command_line.focus = True
+                if self.txtinput_command_line.get_root_window():
+                    self.txtinput_command_line.focus = True
                 self.txtinput_command_line.scroll_x = 0
             if self.txtinput_run_command_refocus:
                 self.txtinput_run_command_refocus = False
@@ -478,8 +489,9 @@ class KivyConsole(GridLayout):
                 instance.text = u''
 
     def add_to_cache(self, _string):
-        os.write(self.stdout.stdout_pipe, _string.encode('utf-8'))
-        self.stdout.flush()
+        #os.write(self.stdout.stdout_pipe, _string.encode('utf-8'))
+        #self.stdout.flush()
+        self.textcache.append(_string)
         _string = None
 
     def on_enter(self, *l):
@@ -493,7 +505,8 @@ class KivyConsole(GridLayout):
             self.interact_layout = None
             # enable running a new command
             parent.add_widget(self.txtinput_command_line)
-            txtinput_command_line.focus = True
+            self._focus(txtinput_command_line, True)
+            Clock.schedule_once(self._change_txtcache, .1)
             self.dispatch('on_subprocess_done')
 
         def run_cmd(*l):
@@ -505,25 +518,26 @@ class KivyConsole(GridLayout):
             except Exception as err:
                 cmd = ''
                 self.add_to_cache(u''.join((str(err), ' <', command, ' >\n')))
-            if len(cmd) >0:
+            if len(cmd) > 0:
                 prev_stdout = sys.stdout
                 sys.stdout = self.stdout
+                Clock_schedule_once = Clock.schedule_once
                 try:
                     #execute command
                     self.popen_obj = popen = subprocess.Popen(
-                      cmd,
-                      bufsize = -1,
-                      stdout = subprocess.PIPE,
-                      stdin = subprocess.PIPE,
-                      stderr = subprocess.STDOUT,
-                      preexec_fn = None,
-                      close_fds = False,
-                      shell = self.shell,
-                      cwd = self.cur_dir,
-                      env = self.environment,
-                      universal_newlines = False,
-                      startupinfo = None,
-                      creationflags = 0)
+                        cmd,
+                        bufsize=-1,
+                        stdout=subprocess.PIPE,
+                        stdin=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        preexec_fn=None,
+                        close_fds=False,
+                        shell=self.shell,
+                        cwd=self.cur_dir,
+                        env=self.environment,
+                        universal_newlines=False,
+                        startupinfo=None,
+                        creationflags=0)
                     popen_stdout_r = popen.stdout.readline
                     popen_stdout_flush = popen.stdout.flush
                     txt = popen_stdout_r()
@@ -553,7 +567,7 @@ class KivyConsole(GridLayout):
         # store command in command_history
         if self.command_history_pos > 0:
             self.command_history_pos = len(command_history)
-            if command_history[self.command_history_pos-1] != command:
+            if command_history[self.command_history_pos - 1] != command:
                 command_history.append(command)
         else:
             command_history.append(command)
@@ -575,7 +589,7 @@ class KivyConsole(GridLayout):
                 self.cur_dir = os.getcwdu()
                 txtinput_command_line.text = self.prompt()
             except OSError, err:
-                Logger.debug('Shell Console: err:'+ err.strerror +
+                Logger.debug('Shell Console: err:' + err.strerror +
                              ' directory:' + command[3:])
                 add_to_cache(u''.join((err.strerror, '\n')))
             self.txtinput_command_line_refocus = True
@@ -587,9 +601,9 @@ class KivyConsole(GridLayout):
         # disable running a new command while and old one is running
         parent.remove_widget(txtinput_command_line)
         # add widget for interaction with the running command
-        txtinput_run_command = TextInput(multiline = False,
-                                         font_size = self.font_size,
-                                         font = self.font)
+        txtinput_run_command = TextInput(multiline=False,
+                                         font_size=self.font_size,
+                                         font_name=self.font_name)
 
         def interact_with_command(*l):
             popen_obj = self.popen_obj
@@ -601,20 +615,19 @@ class KivyConsole(GridLayout):
             popen_obj_stdin.flush()
             self.txtinput_run_command_refocus = True
 
-
         self.txtinput_run_command_refocus = False
-        txtinput_run_command.bind(on_text_validate = interact_with_command)
-        txtinput_run_command.bind(focus = self.on_focus)
-        btn_kill = Button(text ="kill",
-                          width = 27,
-                       size_hint = (None, 1))
+        txtinput_run_command.bind(on_text_validate=interact_with_command)
+        txtinput_run_command.bind(focus=self.on_focus)
+        btn_kill = Button(text="kill",
+                        width=27,
+                        size_hint=(None, 1))
 
         def kill_process(*l):
             self.popen_obj.kill()
 
-        self.interact_layout = il =  GridLayout(rows=1, cols=2, height=27,
+        self.interact_layout = il = GridLayout(rows=1, cols=2, height=27,
             size_hint=(1, None))
-        btn_kill.bind(on_press = kill_process)
+        btn_kill.bind(on_press=kill_process)
         il.add_widget(txtinput_run_command)
         il.add_widget(btn_kill)
         parent.add_widget(il)
@@ -630,7 +643,7 @@ class KivyConsole(GridLayout):
 class std_in_out(object):
     ''' class for writing to/reading from this console'''
 
-    def __init__(self, obj, mode = 'stdout'):
+    def __init__(self, obj, mode='stdout'):
         self.obj = obj
         self.mode = mode
         self.stdin_pipe, self.stdout_pipe = os.pipe()
@@ -638,7 +651,7 @@ class std_in_out(object):
         self.textcache = None
 
     def update_cache(self, text_line, obj, *l):
-        obj.textcache = u''.join((obj.textcache, text_line.decode('utf-8')))
+        obj.textcache.append(text_line.decode('utf-8'))
 
     def read_from_in_pipe(self, *l):
         txt = '\n'
@@ -654,8 +667,8 @@ class std_in_out(object):
         try:
             while txt != '':
                 txt = os_read(self_stdin_pipe, 1)
-                txt_line = ''.join((txt_line, txt))
-                if txt == '\n':#
+                txt_line = u''.join((txt_line, txt))
+                if txt == '\n':
                     if self_mode == 'stdin':
                         # run command
                         self_write(txt_line)
@@ -688,7 +701,7 @@ class std_in_out(object):
                     self.obj.prompt(), s))
                 self.obj.on_enter()
 
-    def read(self, no_of_bytes = 0):
+    def read(self, no_of_bytes=0):
         if self.mode == 'stdin':
             # stdin.read
             Logger.exception('KivyConsole: can not read from a stdin pipe')
@@ -728,8 +741,5 @@ class std_in_out(object):
             return txt[:x]
 
     def flush(self):
-        self.textcache = self.obj.textcache
+        self.textcache = u''.join(self.obj.textcache)
         return
-
-
-Factory.register('KivyConsole', cls=KivyConsole)
