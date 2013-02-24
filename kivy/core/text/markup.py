@@ -190,9 +190,15 @@ class MarkupLabel(MarkupLabelBase):
         if w < 0:
             w = None
         if w is None:
-            w = max([line[0] for line in lines])
+            if not lines:
+                w = 1
+            else:
+                w = max([line[0] for line in lines])
         if h is None:
-            h = sum([line[1] for line in lines])
+            if not lines:
+                h = 1
+            else:
+                h = sum([line[1] for line in lines])
         return w, h
 
     def _pre_render_label(self, word, options, lines):
@@ -222,7 +228,7 @@ class MarkupLabel(MarkupLabelBase):
         uw, uh = self.text_size
 
         # split the word
-        default_line_height = get_extents(' ')[1]
+        default_line_height = get_extents(' ')[1] * self.options['line_height']
         for part in re.split(r'( |\n)', word):
 
             if part == '':
@@ -244,7 +250,7 @@ class MarkupLabel(MarkupLabelBase):
             pg = [cache[g] for g in part]
             pw = get_extents(part)[0]
             ph = max([g[1] for g in pg])
-
+            ph = ph * self.options['line_height']
             options = copy(options)
 
             # check if the part can be put in the line

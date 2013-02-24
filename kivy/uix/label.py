@@ -117,7 +117,7 @@ class Label(Widget):
 
     _font_properties = ('text', 'font_size', 'font_name', 'bold', 'italic',
         'halign', 'valign', 'padding_x', 'padding_y', 'text_size', 'shorten',
-        'mipmap', 'markup')
+        'mipmap', 'markup', 'line_height')
 
     def __init__(self, **kwargs):
         self._trigger_texture = Clock.create_trigger(self.texture_update, -1)
@@ -284,6 +284,16 @@ class Label(Widget):
     12dp.
     '''
 
+    line_height = NumericProperty(1.0)
+    '''Line Height for the text. e.g. line_height = 2 will cause the spacing
+    between lines to be twice the size.
+
+    :data:`line_height` is a :class:`~kivy.properties.NumericProperty`, default to
+    1.0.
+
+    .. versionadded:: 1.5.0
+    '''
+
     bold = BooleanProperty(False)
     '''Indicates use of the bold version of your font.
 
@@ -384,7 +394,7 @@ class Label(Widget):
             # l.texture is good
             l.font_size = '50sp'
             # l.texture is not updated yet
-            l.update_texture()
+            l.texture_update()
             # l.texture is good now.
 
     :data:`texture` is a :class:`~kivy.properties.ObjectProperty`, default to

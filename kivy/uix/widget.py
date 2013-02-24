@@ -47,8 +47,8 @@ We also have some defaults that you should be aware of:
 * The default size_hint is (1, 1). If the parent is a :class:`Layout`, then the
   widget size will be the parent/layout size.
 
-* All the :meth:`Widget.on_touch_down`, :meth:`Widget.on_touch_move`,
-  :meth:`Widget.on_touch_up` doesn't do any sort of collisions. If you want to
+* :meth:`Widget.on_touch_down`, :meth:`Widget.on_touch_move`,
+  :meth:`Widget.on_touch_up` don't do any sort of collisions. If you want to
   know if the touch is inside your widget, use :meth:`Widget.collide_point`.
 
 Using Properties
@@ -280,7 +280,7 @@ class Widget(EventDispatcher):
             children = self.children
             if index >= len(children):
                 index = len(children)
-                next_index = 0
+                next_index = -1
             else:
                 next_child = children[index]
                 next_index = canvas.indexof(next_child.canvas)

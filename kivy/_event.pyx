@@ -52,7 +52,7 @@ cdef class EventDispatcher(object):
             attrs_found = cp[__cls__] = {}
             attrs = dir(__cls__)
             for k in attrs:
-                uattr = getattr(__cls__, k)
+                uattr = getattr(__cls__, k, None)
                 if not isinstance(uattr, Property):
                     continue
                 if k == 'touch_down' or k == 'touch_move' or k == 'touch_up':
@@ -76,7 +76,7 @@ cdef class EventDispatcher(object):
     def __init__(self, **kwargs):
         cdef str func, name, key
         cdef dict properties
-        super(EventDispatcher, self).__init__()
+        super(EventDispatcher, self).__init__(**kwargs)
 
         # Auto bind on own handler if exist
         properties = self.properties()

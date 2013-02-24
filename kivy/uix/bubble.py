@@ -64,6 +64,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.button import Button
 from kivy.properties import ObjectProperty, StringProperty, OptionProperty, \
         ListProperty
+from kivy.base import EventLoop
 
 
 class BubbleButton(Button):
@@ -147,6 +148,15 @@ class Bubble(GridLayout):
     default to 'horizontal'.
     '''
 
+    limit_to = ObjectProperty(None, allow_none=True)
+    '''Specifies the widget to which the bubbles position is limited.
+    
+    .. versionadded:: 1.6.0
+
+    :data:`limit_to` is a :class:`~kivy.properties.ObjectProperty`,
+    default to 'None'.
+    '''
+
     def __init__(self, **kwargs):
         self._arrow_layout = GridLayout(rows=1)
         self._bk_img = Image(
@@ -190,6 +200,20 @@ class Bubble(GridLayout):
         else:
             content.clear_widgets()
 
+    def on_pos(self, instance, pos):
+        lt = self.limit_to
+        if lt and lt is not object:
+            self.limit_to = object
+            if lt is EventLoop.window:
+                lt.x = lt.y = 0
+                lt.top = EventLoop.window.height
+                lt.right = EventLoop.window.width
+            self.x = max(self.x, lt.x)
+            self.right = min(self.right, lt.right)
+            self.top = min(self.top, lt.top)
+            self.y = max(self.y, lt.y)
+            self.limit_to = lt
+
     def on_background_image(self, *l):
         self._bk_img.source = self.background_image
 
@@ -223,6 +247,8 @@ class Bubble(GridLayout):
         self_arrow_img.pos = (0, 0)
 
         self.clear_widgets(do_super=True)
+        self_content.parent = None
+
         self_arrow_img.size_hint = (1, None)
         self_arrow_img.height = self_arrow_img.texture_size[1]
         widget_list = []

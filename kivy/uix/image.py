@@ -47,6 +47,7 @@ from kivy.resources import resource_find
 from kivy.properties import StringProperty, ObjectProperty, ListProperty, \
         AliasProperty, BooleanProperty, NumericProperty
 from kivy.loader import Loader
+from kivy.logger import Logger
 
 
 class Image(Widget):
@@ -144,7 +145,7 @@ class Image(Widget):
 
     .. versionadded:: 1.3.0
 
-    :data:`keep_ratio` is a :class:`~kivy.properties.BooleanProperty`, default
+    :data:`keep_data` is a :class:`~kivy.properties.BooleanProperty`, default
     to False
     '''
 
@@ -157,6 +158,19 @@ class Image(Widget):
     :data:`anim_delay` is a :class:`~kivy.properties.NumericProperty`, default
     to .25 (4 FPS)
     '''
+
+
+    nocache = BooleanProperty(False)
+    '''If this property is set True, the image will not be added to the
+    internal cache anymore. (the cache will simply ignore any calls trying to
+    append the core image)
+
+    .. versionadded:: 1.5.2
+
+    :data:`nocache` is a :class:`~kivy.properties.BooleanProperty`, default
+    to False
+    '''
+
 
     def get_norm_image_size(self):
         if not self.texture:
@@ -210,12 +224,14 @@ class Image(Widget):
         else:
             filename = resource_find(self.source)
             if filename is None:
-                return
+                return Logger.error('Image: Error reading file {filename}'.
+                                    format(filename=self.source))
             mipmap = self.mipmap
             if self._coreimage is not None:
                 self._coreimage.unbind(on_texture=self._on_tex_change)
             self._coreimage = ci = CoreImage(filename, mipmap=mipmap,
-                    anim_delay=self.anim_delay, keep_data=self.keep_data)
+                    anim_delay=self.anim_delay, keep_data=self.keep_data,
+                    nocache=self.nocache)
             ci.bind(on_texture=self._on_tex_change)
             self.texture = ci.texture
 
@@ -253,6 +269,12 @@ class Image(Widget):
         self.source = ''
         self.source = olsource
 
+    def on_nocache(self, *args):
+        if self.nocache and self._coreimage:
+            self._coreimage.remove_from_cache()
+            self._coreimage._nocache = True
+
+
 
 class AsyncImage(Image):
     '''Asynchronous Image class. See module documentation for more information.
@@ -261,24 +283,27 @@ class AsyncImage(Image):
     def __init__(self, **kwargs):
         self._coreimage = None
         super(AsyncImage, self).__init__(**kwargs)
-        self.unbind(source=self.texture_update,
-                    mipmap=self.texture_update)
+        self.bind(source=self._load_source)
+        if self.source:
+            self._load_source()
 
-    def on_source(self, instance, value):
-        if not value:
+    def _load_source(self, *args):
+        source = self.source
+        if not source:
             if self._coreimage is not None:
                 self._coreimage.unbind(on_texture=self._on_tex_change)
             self.texture = None
             self._coreimage = None
         else:
-            if not self.is_uri(value):
-                value = resource_find(value)
-            self._coreimage = image = Loader.image(value)
-            image.bind(on_load=self.on_source_load)
+            if not self.is_uri(source):
+                source = resource_find(source)
+            self._coreimage = image = Loader.image(source,
+                    nocache=self.nocache, mipmap=self.mipmap)
+            image.bind(on_load=self._on_source_load)
             image.bind(on_texture=self._on_tex_change)
             self.texture = image.texture
 
-    def on_source_load(self, value):
+    def _on_source_load(self, value):
         image = self._coreimage.image
         if not image:
             return
@@ -291,3 +316,6 @@ class AsyncImage(Image):
     def _on_tex_change(self, *largs):
         if self._coreimage:
             self.texture = self._coreimage.texture
+
+    def texture_update(self, *largs):
+        pass

@@ -20,6 +20,7 @@ from kivy.cache import Cache
 from kivy.clock import Clock
 from kivy.atlas import Atlas
 from kivy.resources import resource_find
+from kivy.utils import platform
 import zipfile
 try:
     import cStringIO as SIO
@@ -221,6 +222,14 @@ class ImageLoaderBase(object):
             self.populate()
         return self._textures
 
+    @property
+    def nocache(self):
+        '''Indicate if the texture will not be stored in the cache
+
+        .. versionadded:: 1.5.2
+        '''
+        return self._nocache
+
 
 class ImageLoader(object):
     __slots__ = ('loaders')
@@ -294,7 +303,6 @@ class ImageLoader(object):
             # because when it's not in use, the texture can be removed from the
             # kv.texture cache.
             if atlas:
-                #print 'ATLAS REUSE', filename
                 texture = atlas[uid]
                 fn = 'atlas://%s/%s' % (rfn, uid)
                 cid = '%s|%s|%s' % (fn, False, 0)
@@ -308,14 +316,12 @@ class ImageLoader(object):
             afn = resource_find(afn)
             if not afn:
                 raise Exception('Unable to found %r atlas' % afn)
-            #print 'ATLAS LOAD', filename
             atlas = Atlas(afn)
             Cache.append('kv.atlas', rfn, atlas)
             # first time, fill our texture cache.
             for nid, texture in atlas.textures.iteritems():
                 fn = 'atlas://%s/%s' % (rfn, nid)
                 cid = '%s|%s|%s' % (fn, False, 0)
-                #print 'register', cid
                 Cache.append('kv.texture', cid, texture)
             return Image(atlas[uid])
 
@@ -349,12 +355,12 @@ class Image(EventDispatcher):
     '''Load an image, and store the size and texture.
 
     .. versionadded::
-        In 1.0.7, mipmap attribute have been added, texture_mipmap and
+        In 1.0.7, mipmap attribute has been added, texture_mipmap and
         texture_rectangle have been deleted.
 
     .. versionadded::
-        In 1.0.8, Image widget might change itself the texture. A new event
-        'on_texture' have been introduced. New methods for handling sequenced
+        In 1.0.8, an Image widget might change its texture. A new event
+        'on_texture' has been introduced. New methods for handling sequenced
         animation too.
 
     :Parameters:
@@ -606,7 +612,8 @@ class Image(EventDispatcher):
             self._size = image.size
         else:
             self.image = image
-            Cache.append('kv.image', uid, self.image)
+            if not self._nocache:
+                Cache.append('kv.image', uid, self.image)
 
     filename = property(_get_filename, _set_filename,
             doc='Get/set the filename of image')
@@ -636,6 +643,14 @@ class Image(EventDispatcher):
             if not self._iteration_done:
                 self._img_iterate()
         return self._texture
+
+    @property
+    def nocache(self):
+        '''Indicate if the texture will not be stored in the cache
+
+        .. versionadded:: 1.5.2
+        '''
+        return self._nocache
 
     def read_pixel(self, x, y):
         '''For a given local x/y position, return the color at that position.
@@ -684,12 +699,15 @@ def load(filename):
 
 
 # load image loaders
-core_register_libs('image', (
+image_libs = []
+if platform() in ('macosx', 'ios'):
+    image_libs += [('imageio', 'img_imageio')]
+image_libs += [
     ('dds', 'img_dds'),
     ('pygame', 'img_pygame'),
     ('pil', 'img_pil'),
-    ('gif', 'img_gif'),
-))
+    ('gif', 'img_gif')]
+core_register_libs('image', image_libs)
 
 # resolve binding.
 from kivy.graphics.texture import Texture, TextureRegion
