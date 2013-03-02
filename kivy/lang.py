@@ -464,6 +464,7 @@ from kivy.cache import Cache
 from kivy import kivy_data_dir, require
 from kivy.lib.debug import make_traceback
 import kivy.metrics as metrics
+from weakref import ref
 
 
 trace = Logger.trace
@@ -1262,7 +1263,15 @@ class BuilderBase(object):
             rctx['ids'][rule.id] = widget
             # set id name as a attribute for root widget so one can in python
             # code simply access root_widget.id_name
-            setattr(rctx['ids']['root'], 'ids', QueryDict(rctx['ids']))
+            _ids = dict(rctx['ids'])
+            _root = _ids.pop('root')
+            _nids = _root.ids
+            for _key in _ids.keys():
+                if _ids[_key] == _root:
+                    # skip on self
+                    continue
+                _nids[_key] = ref(_ids[_key])
+            _root.ids = _nids
 
         # first, ensure that the widget have all the properties used in
         # the rule if not, they will be created as ObjectProperty.

@@ -563,6 +563,11 @@ class Widget(EventDispatcher):
     :data:`pos_hint` is a :class:`~kivy.properties.ObjectProperty` containing a
     dict.
     '''
+    from kivy.properties import DictProperty
+    ids = DictProperty({})
+    '''This is a Dictionary of id's defined in your kv language. This will only
+    be populated if you use id's in you code TODO
+    '''
 
     opacity = NumericProperty(1.0)
     '''Opacity of the widget and all the children.

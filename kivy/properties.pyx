@@ -234,9 +234,11 @@ cdef class Property:
 
     :Parameters:
         `errorhandler`: callable
-            If set, must take a single argument and return a valid substitute value
+            If set, must take a single argument and return a valid substitute
+            value
         `errorvalue`: object
-            If set, will replace an invalid property value (overrides errorhandler)
+            If set, will replace an invalid property value (overrides
+            errorhandler)
 
     .. versionchanged:: 1.4.2
         Parameters errorhandler and errorvalue added
@@ -601,8 +603,29 @@ class ObservableDict(dict):
         self.obj = largs[1]
         super(ObservableDict, self).__init__(*largs[2:])
 
+    def __getattr__(self, attr):
+        try:
+            return self.__getitem__(attr)
+        except KeyError:
+            try:
+                return super(ObservableDict, self).__getattr__(attr)
+            except AttributeError:
+                raise KeyError(attr)
+
+    def __setattr__(self, attr, value):
+        print 'set attr', attr, value
+        if attr in ('prop', 'obj'):
+            super(ObservableDict, self).__setattr__(attr, value)
+            return
+        self.__setitem__(attr, value)
+
     def __setitem__(self, key, value):
-        dict.__setitem__(self, key, value)
+        if value is None:
+            # remove attribute if value is None
+            # is this really needed?
+           self.__delitem__(key)
+        else:
+            dict.__setitem__(self, key, value)
         observable_dict_dispatch(self)
 
     def __delitem__(self, key):
@@ -632,6 +655,7 @@ class ObservableDict(dict):
         observable_dict_dispatch(self)
 
     def update(self, *largs):
+        print 'update od', largs
         dict.update(self, *largs)
         observable_dict_dispatch(self)
 
@@ -660,8 +684,10 @@ cdef class DictProperty(Property):
                 self.name))
 
     cpdef set(self, EventDispatcher obj, value):
+        print 'set ', self._name, value
         value = ObservableDict(self, obj, value)
         Property.set(self, obj, value)
+
 
 
 cdef class ObjectProperty(Property):
