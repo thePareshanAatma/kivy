@@ -12,14 +12,28 @@ __all__ = ('intersection', 'difference', 'strtotuple',
            'interpolate', 'OrderedDict', 'QueryDict',
            'platform', 'escape_markup', 'reify')
 
-from os import environ
 from sys import platform as _sys_platform
 from re import match, split
 from UserDict import DictMixin
-from os import environ
+from os import environ, walk, path
+import fnmatch
 
 _platform_android = None
 _platform_ios = None
+
+
+def recursive_glob(treeroot, pattern):
+    '''Searches a root dir for  particular pattern recursively
+
+    .. versionadded:: 1.6.1
+
+    Usage::
+
+        fonts_list = recursive_glob('/usr/share/fonts', '*.ttf')
+    '''
+    for base, dirs, files in walk(path.expanduser(treeroot)):
+        for f in fnmatch.filter(files, pattern):
+            yield path.join(base, f)
 
 
 def boundary(value, minvalue, maxvalue):

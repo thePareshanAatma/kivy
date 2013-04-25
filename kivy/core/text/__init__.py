@@ -20,6 +20,7 @@ import os
 from kivy import kivy_data_dir
 from kivy.graphics.texture import Texture
 from kivy.core import core_select_lib
+from kivy.utils import platform, recursive_glob
 from kivy.resources import resource_find
 
 DEFAULT_FONT = 'DroidSans'
@@ -83,6 +84,8 @@ class LabelBase(object):
     _fonts = {}
 
     _fonts_cache = {}
+
+    _fonts_list = {}
 
     def __init__(self, text='', font_size=12, font_name=DEFAULT_FONT,
                  bold=False, italic=False, halign='left', valign='bottom',
@@ -154,6 +157,56 @@ class LabelBase(object):
 
         LabelBase._fonts[name] = tuple(fonts)
 
+    @staticmethod
+    def get_system_fonts(refresh=False):
+        '''Get a list of System Fonts
+
+        .. versionadded:: 1.6.1
+
+        This method returns a Dict of fonts installed on the system.
+
+        '''
+        _fonts_list = LabelBase._fonts_list
+        if _fonts_list and not refresh:
+            return _fonts_list
+        _platform = platform()
+        dirs = ['',]
+
+        if  _platform == 'linux':
+            import xml.etree.cElementTree as ET
+            with open('/etc/fonts/fonts.conf', 'r') as fd:
+                for _dir in ET.XML(fd.read()).iter('dir'):
+                    dirs.append(_dir.text)
+        elif _platform == 'android':
+            dirs = ['/system/fonts/',]
+        elif _platform == 'macosx':
+            dirs = ['~/Library/Fonts', '/Library/Fonts',
+                    '/System/Library/Fonts', 'Network/Library/Fonts']
+        elif _platform == 'ios':
+            dirs = ['/System/Library/Fonts',]
+        elif _platform == 'win':
+            dirs = [''.join((os.environ['WINDIR'], '\\fonts')), ]
+
+        for item in dirs:
+            for fnt in recursive_glob(item, '*.ttf'):
+                _fonts_list[fnt[fnt.rfind(os.sep)+1:-4]] = fnt
+        LabelBase._fonts_list = _fonts_list
+        return _fonts_list
+
+    def get_font_path(self, font_name):
+        '''Get absolute path for the Font
+
+        .. versionadded:: 1.6
+
+        '''
+        ret = None
+        try:
+            ret = LabelBase.get_system_fonts()[font_name]
+        except KeyError:  
+            pass
+        return ret
+
+
     def resolve_font_name(self):
         options = self.options
         fontname = options['font_name']
@@ -179,7 +232,10 @@ class LabelBase(object):
                 # XXX for compatibility, check directly in the data dir
                 filename = os.path.join(kivy_data_dir, fontname)
                 if not os.path.exists(filename):
-                    raise IOError('Label: File %r not found' % fontname)
+                    # check system fonts
+                    filename = self.get_font_path(fontname)
+                    if not filename:
+                        raise IOError('Label: File %r not found' % fontname) 
             fontscache[fontname] = filename
             options['font_name_r'] = filename
 

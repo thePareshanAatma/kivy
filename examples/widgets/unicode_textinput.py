@@ -2,23 +2,22 @@
 
 from kivy.app import App
 from kivy.lang import Builder
-from kivy.properties import StringProperty, ObjectProperty
+from kivy.properties import StringProperty, ObjectProperty, DictProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.spinner import SpinnerOption
 from kivy.uix.popup import Popup
+from kivy.core.text import Label as CoreLabel
+from kivy.utils import platform
 import os
 
+_platform = platform()
 
 Builder.load_string(
 '''
-#: import utils kivy
-#: import os os
-#: import font pygame.font
 #: import Factory kivy.factory.Factory
 <FntSpinnerOption>
-    fnt_name: font.match_font(self.text)
-    font_name: self.fnt_name if self.fnt_name else self.font_name
+    font_name: self.text if self.text else self.font_name
 
 <Unicode_TextInput>
     orientation: 'vertical'
@@ -28,15 +27,16 @@ Builder.load_string(
         size_hint: 1, .05
         Spinner:
             id: fnt_spnr
-            text: 'DroidSansMono'
-            fnt_name: font.match_font(self.text)
-            font_name: self.fnt_name if self.fnt_name else self.font_name
-            values: sorted(font.get_fonts())
+            text: 'DroidSans'
+            font_name:
+                root.fonts.get(self.text, self.font_name)\\
+                if self.text else self.font_name
+            values: sorted(root.fonts.keys())
             option_cls: Factory.FntSpinnerOption
         Spinner:
             id: fntsz_spnr
             text: '15'
-            values: map(str, map(sp, range(5,39)))
+            values: map(str, map(sp, range(5, 39)))
     ScrollView:
         size_hint: 1, .9
         TextInput:
@@ -47,8 +47,9 @@ Builder.load_string(
             font_size: fntsz_spnr.text + 'sp'
             text: root.unicode_string
             size_hint: 1, None
-            height: 1494
-            on_font_name: self.height = (self.line_height + self.padding_y) * (len(self._lines)-1)
+            height:
+                max(self.parent.height,\\
+                (self.line_height + self._line_spacing) * (len(self._lines)+1))
     BoxLayout:
         size_hint: 1, .05
         Label:
@@ -62,7 +63,6 @@ Builder.load_string(
             on_release: root.show_load()
 
 <LoadDialog>:
-    platform: utils.platform()
     BoxLayout:
         size: root.size
         pos: root.pos
@@ -76,10 +76,7 @@ Builder.load_string(
                 halign: 'center'
                 text_size: self.size
                 on_release:
-                    _platform = root.platform
-                    filechooser.path = os.path.expanduser('~/.fonts')\
-if _platform == 'linux' else '/system/fonts' if _platform == 'android' else os.path.expanduser('~/Library/Fonts')\
-if _platform == 'macosx' else os.environ['WINDIR'] + '\Fonts\'
+                    filechooser.path = root.user_font_dir
             Button:
                 size_hint: 1, .2
                 text: 'System Font directory'
@@ -87,11 +84,7 @@ if _platform == 'macosx' else os.environ['WINDIR'] + '\Fonts\'
                 halign: 'center'
                 text_size: self.size
                 on_release:
-                    _platform = root.platform
-                    filechooser.path = '/usr/share/fonts' \
-if _platform == 'linux' else '/system/fonts' if _platform == 'android' else os.path.expanduser\
-('/System/Library/Fonts') if _platform == 'macosx' else os.environ['WINDIR']\
-+ "\Fonts\"
+                    filechooser.path = root.platform_font_dir
             Label:
                 text: 'BookMarks'
         BoxLayout:
@@ -107,8 +100,9 @@ if _platform == 'linux' else '/system/fonts' if _platform == 'android' else os.p
                     on_release: root.cancel()
                 Button:
                     text: "load"
-                    on_release: filechooser.selection != [] and root.load\
-(filechooser.path, filechooser.selection)
+                    on_release:
+                        filechooser.selection != [] and\\
+                        root.load(filechooser.path, filechooser.selection)
 ''')
 
 class FntSpinnerOption(SpinnerOption):
@@ -117,11 +111,27 @@ class FntSpinnerOption(SpinnerOption):
 class LoadDialog(FloatLayout):
     load = ObjectProperty(None)
     cancel = ObjectProperty(None)
+    platform_font_dir = StringProperty(
+                            '/usr/share/fonts' 
+                            if _platform == 'linux' else '/system/fonts'
+                    if _platform == 'android' else os.path.expanduser
+                    ('/System/Library/Fonts') if _platform == 'macosx'
+                    else os.environ['WINDIR'] + "\\Fonts\\" )
+    user_font_dir = StringProperty(
+                            os.path.expanduser('~/.fonts')
+                            if _platform == 'linux' else '/system/fonts'
+                            if _platform == 'android' else
+                            os.path.expanduser('~/Library/Fonts')
+                            if _platform == 'macosx' else
+                            os.environ['WINDIR'] + '\\Fonts\\')
 
 
 class Unicode_TextInput(BoxLayout):
 
     txt_input = ObjectProperty(None)
+
+    fonts = DictProperty(CoreLabel.get_system_fonts())
+
     unicode_string = StringProperty(u'''Latin-1 suppliment: éé çç ßß
 
 List of major languages taken from Google Translate
