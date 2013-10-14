@@ -593,6 +593,7 @@ class Carousel(StencilView):
 
 if __name__ == '__main__':
     from kivy.app import App
+    from kivy.uix.button import Button
 
     class Example1(App):
 
