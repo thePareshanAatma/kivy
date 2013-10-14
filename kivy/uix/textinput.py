@@ -2137,6 +2137,7 @@ class TextInput(Widget):
         if len(lf) < len_l:
             lf.append(1)
 
+        #Logger.debug('TextInput: {} {}'.format(lf, l))
         text = u''.join([(u'\n' if (lf[i] & FL_IS_NEWLINE) else u'') + l[i]
                         for i in range(len_l)])
 
