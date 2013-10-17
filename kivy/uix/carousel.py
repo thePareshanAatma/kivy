@@ -226,7 +226,7 @@ class Carousel(StencilView):
     '''
 
     anim_type = StringProperty('out_quad')
-    '''type of animation to use while animating in the nex/previous slide.
+    '''Type of animation to use while animating in the next/previous slide.
 
     .. versionadded:: 1.8.0
     '''
@@ -408,7 +408,7 @@ class Carousel(StencilView):
 
         if direction[0] == 'r':
             if _offset <= -width:
-                self.index +=  1
+                self.index += 1
             if _offset >= width:
                 self.index -= 1
         if direction[0] == 'l':

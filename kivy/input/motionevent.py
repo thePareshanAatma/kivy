@@ -126,6 +126,7 @@ class MotionEvent(MotionEventBase):
         `args` : list
             list of parameters, passed to the depack() function
     '''
+
     __uniq_id = 0
     __attrs__ = \
         ('device', 'push_attrs', 'push_attrs_stack',

@@ -22,6 +22,7 @@ from kivy.event import EventDispatcher
 from kivy.properties import ListProperty, ObjectProperty, AliasProperty, \
         NumericProperty, OptionProperty, StringProperty
 from kivy.utils import platform, reify
+from kivy.context import get_current_context
 
 # late import
 VKeyboard = None
@@ -481,6 +482,10 @@ class WindowBase(EventDispatcher):
         # manage keyboard(s)
         self.configure_keyboards()
 
+        # assign the default context of the widget creation
+        if not hasattr(self, '_context'):
+            self._context = get_current_context()
+
         # mark as initialized
         self.initialized = True
 
@@ -528,7 +533,7 @@ class WindowBase(EventDispatcher):
             # if we get initialized more than once, then reload opengl state
             # after the second time.
             # XXX check how it's working on embed platform.
-            if platform() == 'linux':
+            if platform == 'linux':
                 # on linux, it's safe for just sending a resize.
                 self.dispatch('on_resize', *self.system_size)
 
