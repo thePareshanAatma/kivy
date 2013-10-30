@@ -252,12 +252,16 @@ class Carousel(StencilView):
         '''
         slides = self.slides
         start, stop = slides.index(self.current_slide), slides.index(slide)
+        if start == stop:
+            return
         if stop > start:
-            self.index = stop - 1
+            self._insert_visible_slides(_next_slide=slide)
             self.load_next()
+            self.index = stop - 1
         else:
-            self.index = stop + 1
+            self._insert_visible_slides(_prev_slide=slide)
             self.load_previous()
+            self.index = stop + 1
 
     def load_previous(self):
         '''Animate to the previous slide.
@@ -286,10 +290,10 @@ class Carousel(StencilView):
     def get_slide_container(self, slide):
         return slide.parent
 
-    def _insert_visible_slides(self):
+    def _insert_visible_slides(self, _next_slide=None, _prev_slide=None):
         get_slide_container = self.get_slide_container
 
-        previous_slide = self.previous_slide
+        previous_slide = _prev_slide if _prev_slide else self.previous_slide
         if previous_slide:
             self._prev = get_slide_container(previous_slide)
         else:
@@ -301,7 +305,7 @@ class Carousel(StencilView):
         else:
             self._current = None
 
-        next_slide = self.next_slide
+        next_slide = _next_slide if _next_slide else self.next_slide
         if next_slide:
             self._next = get_slide_container(next_slide)
         else:
@@ -593,7 +597,7 @@ if __name__ == '__main__':
     class Example1(App):
 
         def build(self):
-            carousel = Carousel(direction='top',
+            carousel = Carousel(direction='left',
                                 loop=True)
             for i in range(4):
                 src = "http://placehold.it/480x270.png&text=slide-%d&.png" % i
