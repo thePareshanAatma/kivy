@@ -244,6 +244,7 @@ class Carousel(StencilView):
         self._trigger_position_visible_slides = Clock.create_trigger(
                 self._position_visible_slides, -1)
         super(Carousel, self).__init__(**kwargs)
+        self._skip_slide = None
 
     def load_slide(self, slide):
         '''Animate to the slide that is passed as the argument.
@@ -254,14 +255,14 @@ class Carousel(StencilView):
         start, stop = slides.index(self.current_slide), slides.index(slide)
         if start == stop:
             return
+
+        self._skip_slide = stop
         if stop > start:
             self._insert_visible_slides(_next_slide=slide)
             self.load_next()
-            self.index = stop - 1
         else:
             self._insert_visible_slides(_prev_slide=slide)
             self.load_previous()
-            self.index = stop + 1
 
     def load_previous(self):
         '''Animate to the previous slide.
@@ -410,6 +411,8 @@ class Carousel(StencilView):
         width = self.width
         height = self.height
         index = self.index
+        if self._skip_slide is not None:
+            return
 
         if direction[0] == 'r':
             if _offset <= -width:
@@ -468,6 +471,13 @@ class Carousel(StencilView):
 
         anim = Animation(_offset=new_offset, d=dur, t=self.anim_type)
         anim.cancel_all(self)
+
+        def cmp(*l):
+            if self._skip_slide is not None:
+                self.index = self._skip_slide
+                self._skip_slide = None
+
+        anim.bind(on_complete=cmp)
         anim.start(self)
 
     def _get_uid(self, prefix='sv'):
