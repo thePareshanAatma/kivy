@@ -294,7 +294,7 @@ from weakref import ref
 _is_rpi = exists('/opt/vc/include/bcm_host.h')
 
 # Version number of current configuration format
-KIVY_CONFIG_VERSION = 14
+KIVY_CONFIG_VERSION = 15
 
 Config = None
 '''The default Kivy configuration object. This is a :class:`ConfigParser`
@@ -780,6 +780,9 @@ if not environ.get('KIVY_DOC_INCLUDE'):
         elif version == 13:
             Config.setdefault('graphics', 'minimum_width', '0')
             Config.setdefault('graphics', 'minimum_height', '0')
+
+        elif version == 14:
+            Config.setdefault('graphics', 'vsync', 0)
 
         # elif version == 1:
         #    # add here the command for upgrading from configuration 0 to 1
