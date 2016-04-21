@@ -182,6 +182,13 @@ Available configuration tokens
         Minimum width to restrict the window to. (sdl2 only)
     `minimun_height`: int
         Minimum height to restrict the window to. (sdl2 only)
+    `min_state_time`: float, defaults to .035
+        Minumim time for widgets to display a given visual state.
+        This attrib is currently used by widgets like
+        :class:`~kivy.uix.dropdown.DropDown` &
+        :class:`~kivy.uix.behaviors.buttonbehavior.ButtonBehavior` to
+        make sure they display their current visual state for the given
+        time.
 
 :input:
 
@@ -249,6 +256,10 @@ Available configuration tokens
     Check the specific module's documentation for a list of accepted
     arguments.
 
+.. versionchanged:: 1.9.2
+    `min_state_time` has been added to the `graphics` section.
+    `vsync` has been added to the `graphics` section.
+
 .. versionchanged:: 1.9.0
     `borderless` and `window_state` have been added to the graphics section.
     The `fake` setting of the `fullscreen` option has been deprecated,
@@ -294,7 +305,7 @@ from weakref import ref
 _is_rpi = exists('/opt/vc/include/bcm_host.h')
 
 # Version number of current configuration format
-KIVY_CONFIG_VERSION = 15
+KIVY_CONFIG_VERSION = 16
 
 Config = None
 '''The default Kivy configuration object. This is a :class:`ConfigParser`
@@ -782,7 +793,10 @@ if not environ.get('KIVY_DOC_INCLUDE'):
             Config.setdefault('graphics', 'minimum_height', '0')
 
         elif version == 14:
-            Config.setdefault('graphics', 'vsync', 0)
+            Config.setdefault('graphics', 'min_state_time', '.035')
+
+        elif version == 15:
+            Config.setdefault('graphics', 'vsync', 'None')
 
         # elif version == 1:
         #    # add here the command for upgrading from configuration 0 to 1
